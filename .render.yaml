@@ -1,7 +1,7 @@
 services:
   - type: web
-    name: remote-browser
+    name: remote-browser-on-render
     env: python
     buildCommand: pip install -r requirements.txt
-    startCommand: python app.py
+    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT app:app
     autoDeploy: true
