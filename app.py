@@ -4,7 +4,7 @@ import requests
 import re
 from urllib.parse import urljoin, quote
 
-VERSION = "1.0.0"
+VERSION = "1.0.1"
 app = Flask(__name__)
 
 @app.route('/')
@@ -27,7 +27,9 @@ def fetch_route():
             # Decode using response encoding or default UTF-8
             encoding = resp.encoding if resp.encoding else 'utf-8'
             html = resp.text
-            # No <base> tag needed – we rewrite all src/href attributes to go through the proxy
+            # Insert a <base> tag so that root‑relative URLs (e.g. "/_next/...") resolve to the original host
+            if re.search(r'<head', html, re.IGNORECASE):
+                html = re.sub(r'(<head[^>]*>)', r'\1<base href="' + url + r'">', html, flags=re.IGNORECASE)
             # Function to replace relative src/href attributes with proxy URLs
             def replace_relative(match):
                 attr = match.group(1)
