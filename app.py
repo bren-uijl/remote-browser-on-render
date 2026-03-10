@@ -1,6 +1,8 @@
 import os
 from flask import Flask, request, render_template, jsonify, Response
 import requests
+import re
+from urllib.parse import urljoin, quote
 
 app = Flask(__name__)
 
@@ -18,9 +20,32 @@ def fetch_route():
         url = 'http://' + url
     try:
         resp = requests.get(url, timeout=30, verify=False)
-        # Forward the content type from the fetched response, default to text/html
         content_type = resp.headers.get('Content-Type', 'text/html')
-        return Response(resp.content, content_type=content_type)
+        # If HTML, rewrite relative src and href to go through proxy
+        if content_type and 'text/html' in content_type.lower():
+            # Decode using response encoding or default UTF-8
+            encoding = resp.encoding if resp.encoding else 'utf-8'
+            html = resp.text
+            # Function to replace relative URLs
+            def replace_relative(match):
+                attr = match.group(1)
+                quote_char = match.group(2)
+                link = match.group(3)
+                # Leave absolute URLs, protocol-relative URLs, and data URIs unchanged
+                if link.startswith(('http://', 'https://', '//', 'data:')):
+                    return f"{attr}={quote_char}{link}{quote_char}"
+                # Compute absolute URL based on original request URL
+                absolute = urljoin(url, link)
+                proxied = '/fetch?url=' + quote(absolute, safe='')
+                return f"{attr}={quote_char}{proxied}{quote_char}"
+            # Regex to find src or href attributes with relative URLs
+            pattern = r'(src|href)=([\'\"])(?!https?://|//|data:)([^\'\"]+?)\2'
+            # Apply substitution
+            new_html = re.sub(pattern, replace_relative, html, flags=re.IGNORECASE)
+            content = new_html.encode(encoding)
+        else:
+            content = resp.content
+        return Response(content, content_type=content_type)
     except Exception as e:
         return jsonify({'error': f'Failed to fetch URL: {e}'}), 500
 
