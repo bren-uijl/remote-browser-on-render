@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Remote Browser</title>
+    <style>
+        body {font-family: Arial, sans-serif; margin: 2rem;}
+        #resultImg {max-width: 100%; border: 1px solid #ccc; margin-top: 1rem;}
+        #status {margin-top: 0.5rem; color: #555;}
+    </style>
+</head>
+<body>
+    <h1>Remote Browser</h1>
+    <form id="urlForm">
+        <label for="urlInput">Enter URL:</label>
+        <input type="text" id="urlInput" placeholder="https://example.com" size="50" required />
+        <button type="submit">Load</button>
+    </form>
+    <div id="status"></div>
+    <iframe id="resultFrame" style="width:100%;height:80vh;border:1px solid #ccc;"></iframe>
+    <script src="/static/script.js"></script>
+</body>
+</html>
