@@ -1,25 +1,746 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Remote Browser</title>
-    <style>
-        body {font-family: Arial, sans-serif; margin: 2rem;}
-        #resultImg {max-width: 100%; border: 1px solid #ccc; margin-top: 1rem;}
-        #status {margin-top: 0.5rem; color: #555;}
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Remote Browser</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0e0f11;
+      --surface:   #16181c;
+      --toolbar:   #1c1e24;
+      --border:    #2a2d35;
+      --border-hi: #3d4150;
+      --tab-bg:    #13151a;
+      --tab-act:   #1c1e24;
+      --text:      #e2e4ea;
+      --text-dim:  #6b7080;
+      --accent:    #4f8ef7;
+      --accent-hi: #6fa3ff;
+      --danger:    #e05c5c;
+      --green:     #4caf7d;
+      --radius:    6px;
+      --mono:      'IBM Plex Mono', monospace;
+      --sans:      'IBM Plex Sans', sans-serif;
+    }
+
+    html, body {
+      height: 100%;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      overflow: hidden;
+    }
+
+    /* ── Window chrome ─────────────────────────────── */
+    #browser-window {
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+
+    /* ── Title bar ─────────────────────────────────── */
+    #title-bar {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 0 12px;
+      height: 36px;
+      background: var(--bg);
+      border-bottom: 1px solid var(--border);
+      user-select: none;
+      flex-shrink: 0;
+    }
+    .traffic-lights { display: flex; gap: 6px; align-items: center; }
+    .dot {
+      width: 12px; height: 12px;
+      border-radius: 50%;
+      cursor: pointer;
+      transition: filter 0.15s;
+    }
+    .dot:hover { filter: brightness(1.3); }
+    .dot-close  { background: #e05c5c; }
+    .dot-min    { background: #e8a030; }
+    .dot-max    { background: #4caf7d; }
+    #title-text {
+      flex: 1;
+      text-align: center;
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 0.04em;
+    }
+    #version-badge {
+      font-family: var(--mono);
+      font-size: 10px;
+      color: var(--text-dim);
+      background: var(--border);
+      padding: 2px 7px;
+      border-radius: 99px;
+    }
+
+    /* ── Tab bar ───────────────────────────────────── */
+    #tab-bar {
+      display: flex;
+      align-items: stretch;
+      background: var(--tab-bg);
+      border-bottom: 1px solid var(--border);
+      padding: 0 8px;
+      gap: 2px;
+      min-height: 36px;
+      overflow-x: auto;
+      overflow-y: hidden;
+      flex-shrink: 0;
+    }
+    #tab-bar::-webkit-scrollbar { height: 3px; }
+    #tab-bar::-webkit-scrollbar-thumb { background: var(--border-hi); border-radius: 99px; }
+
+    .tab {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      padding: 0 10px 0 12px;
+      min-width: 120px;
+      max-width: 200px;
+      height: 36px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--text-dim);
+      font-family: var(--sans);
+      font-size: 12px;
+      cursor: pointer;
+      white-space: nowrap;
+      overflow: hidden;
+      transition: background 0.12s, color 0.12s, border-color 0.12s;
+      flex-shrink: 0;
+      position: relative;
+    }
+    .tab:hover { background: var(--surface); color: var(--text); }
+    .tab.active {
+      background: var(--tab-act);
+      color: var(--text);
+      border-bottom-color: var(--accent);
+    }
+    .tab-favicon {
+      width: 14px; height: 14px;
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .tab-title { flex: 1; overflow: hidden; text-overflow: ellipsis; }
+    .tab-close {
+      width: 16px; height: 16px;
+      border-radius: 3px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 14px; line-height: 1;
+      color: var(--text-dim);
+      flex-shrink: 0;
+      transition: background 0.1s, color 0.1s;
+    }
+    .tab-close:hover { background: var(--danger); color: #fff; }
+
+    .tab-loading .tab-favicon { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #new-tab-btn {
+      display: flex; align-items: center; justify-content: center;
+      width: 32px; height: 36px;
+      background: none; border: none;
+      color: var(--text-dim);
+      font-size: 18px;
+      cursor: pointer;
+      flex-shrink: 0;
+      border-radius: var(--radius);
+      transition: background 0.1s, color 0.1s;
+    }
+    #new-tab-btn:hover { background: var(--surface); color: var(--text); }
+
+    /* ── Toolbar / address bar ─────────────────────── */
+    #toolbar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 12px;
+      background: var(--toolbar);
+      border-bottom: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    .nav-btn {
+      width: 28px; height: 28px;
+      background: none; border: none;
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      font-size: 15px;
+      cursor: pointer;
+      display: flex; align-items: center; justify-content: center;
+      transition: background 0.1s, color 0.1s;
+      flex-shrink: 0;
+    }
+    .nav-btn:hover:not(:disabled) { background: var(--border); color: var(--text); }
+    .nav-btn:disabled { opacity: 0.3; cursor: default; }
+
+    #address-bar-wrap {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 0 10px;
+      gap: 8px;
+      height: 28px;
+      transition: border-color 0.15s;
+    }
+    #address-bar-wrap:focus-within { border-color: var(--accent); }
+    #address-bar-wrap .scheme-badge {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--green);
+      flex-shrink: 0;
+    }
+    #address-bar-wrap .scheme-badge.insecure { color: var(--text-dim); }
+    #url-input {
+      flex: 1;
+      background: none;
+      border: none;
+      outline: none;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 12px;
+      letter-spacing: 0.01em;
+    }
+    #url-input::placeholder { color: var(--text-dim); }
+
+    #go-btn {
+      height: 28px;
+      padding: 0 14px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: var(--radius);
+      font-family: var(--sans);
+      font-size: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      flex-shrink: 0;
+      transition: background 0.15s, transform 0.1s;
+    }
+    #go-btn:hover { background: var(--accent-hi); }
+    #go-btn:active { transform: scale(0.97); }
+
+    /* ── Progress bar ──────────────────────────────── */
+    #progress-bar {
+      height: 2px;
+      background: var(--accent);
+      width: 0%;
+      transition: width 0.3s ease;
+      flex-shrink: 0;
+    }
+    #progress-bar.done { opacity: 0; transition: opacity 0.4s 0.2s; }
+
+    /* ── Tab content area ──────────────────────────── */
+    #tab-content {
+      flex: 1;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .tab-panel {
+      position: absolute;
+      inset: 0;
+      display: none;
+    }
+    .tab-panel.active { display: flex; flex-direction: column; }
+
+    /* ── New-tab / start page ──────────────────────── */
+    .start-page {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 28px;
+      background: var(--bg);
+      padding: 40px;
+    }
+    .start-logo {
+      font-family: var(--mono);
+      font-size: 28px;
+      font-weight: 500;
+      color: var(--text);
+      letter-spacing: -0.02em;
+    }
+    .start-logo span { color: var(--accent); }
+    .start-subtitle {
+      font-size: 12px;
+      color: var(--text-dim);
+      font-family: var(--mono);
+      letter-spacing: 0.05em;
+    }
+    .start-search {
+      display: flex;
+      align-items: center;
+      gap: 0;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      width: 100%;
+      max-width: 520px;
+      overflow: hidden;
+      transition: border-color 0.15s;
+    }
+    .start-search:focus-within { border-color: var(--accent); }
+    .start-search input {
+      flex: 1;
+      background: none; border: none; outline: none;
+      color: var(--text);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 12px 16px;
+    }
+    .start-search input::placeholder { color: var(--text-dim); }
+    .start-search button {
+      padding: 0 20px;
+      height: 44px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      font-family: var(--sans);
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+    .start-search button:hover { background: var(--accent-hi); }
+    .quicklinks {
+      display: flex; gap: 12px; flex-wrap: wrap; justify-content: center;
+    }
+    .quicklink {
+      display: flex; align-items: center; gap: 7px;
+      padding: 7px 14px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text-dim);
+      font-size: 12px;
+      cursor: pointer;
+      transition: border-color 0.15s, color 0.15s;
+      user-select: none;
+    }
+    .quicklink:hover { border-color: var(--accent); color: var(--text); }
+
+    /* ── Iframe ────────────────────────────────────── */
+    .browser-frame {
+      flex: 1;
+      width: 100%;
+      border: none;
+      background: #fff;
+    }
+
+    /* ── Error page ────────────────────────────────── */
+    .error-page {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      background: var(--bg);
+      padding: 40px;
+    }
+    .error-code { font-family: var(--mono); font-size: 64px; color: var(--border-hi); line-height: 1; }
+    .error-msg  { font-size: 14px; color: var(--text-dim); text-align: center; max-width: 400px; }
+    .error-retry {
+      padding: 8px 20px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 13px;
+      cursor: pointer;
+      transition: border-color 0.15s;
+    }
+    .error-retry:hover { border-color: var(--accent); }
+
+    /* ── Status bar ────────────────────────────────── */
+    #status-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      height: 22px;
+      background: var(--bg);
+      border-top: 1px solid var(--border);
+      flex-shrink: 0;
+    }
+    #status-text { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+    #status-right { font-family: var(--mono); font-size: 10px; color: var(--text-dim); }
+  </style>
 </head>
 <body>
-    <h1>Remote Browser</h1>
-    <p id="version">Version: {{ version }}</p>
-    <form id="urlForm">
-        <label for="urlInput">Enter URL:</label>
-        <input type="text" id="urlInput" placeholder="https://example.com" size="50" required />
-        <button type="submit">Load</button>
-    </form>
-    <div id="status"></div>
-    <iframe id="resultFrame" style="width:100%;height:80vh;border:1px solid #ccc;"></iframe>
-    <script src="/static/script.js"></script>
+<div id="browser-window">
+
+  <!-- Title bar -->
+  <div id="title-bar">
+    <div class="traffic-lights">
+      <div class="dot dot-close"  title="Close"></div>
+      <div class="dot dot-min"    title="Minimise"></div>
+      <div class="dot dot-max"    title="Maximise"></div>
+    </div>
+    <div id="title-text">remote-browser</div>
+    <div id="version-badge">v{{ version }}</div>
+  </div>
+
+  <!-- Tab bar -->
+  <div id="tab-bar">
+    <!-- tabs injected by JS -->
+    <button id="new-tab-btn" title="New tab">+</button>
+  </div>
+
+  <!-- Toolbar -->
+  <div id="toolbar">
+    <button class="nav-btn" id="btn-back"    title="Back"    disabled>&#8592;</button>
+    <button class="nav-btn" id="btn-forward" title="Forward" disabled>&#8594;</button>
+    <button class="nav-btn" id="btn-reload"  title="Reload">&#8635;</button>
+    <button class="nav-btn" id="btn-home"    title="New tab">&#8962;</button>
+    <div id="address-bar-wrap">
+      <span class="scheme-badge" id="scheme-badge">https</span>
+      <input id="url-input" type="text" placeholder="Enter a URL or search term…" autocomplete="off" spellcheck="false" />
+    </div>
+    <button id="go-btn">Go</button>
+  </div>
+
+  <!-- Progress bar -->
+  <div id="progress-bar"></div>
+
+  <!-- Tab panels -->
+  <div id="tab-content"></div>
+
+  <!-- Status bar -->
+  <div id="status-bar">
+    <span id="status-text">Ready</span>
+    <span id="status-right">remote-browser-on-render</span>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  // ── State ────────────────────────────────────────────────
+  let tabIdCounter = 0;
+  const tabs = {};      // id → { url, title, history[], histIdx }
+  let activeTabId = null;
+
+  // ── DOM refs ─────────────────────────────────────────────
+  const tabBar      = document.getElementById('tab-bar');
+  const newTabBtn   = document.getElementById('new-tab-btn');
+  const tabContent  = document.getElementById('tab-content');
+  const urlInput    = document.getElementById('url-input');
+  const schemeBadge = document.getElementById('scheme-badge');
+  const goBtn       = document.getElementById('go-btn');
+  const btnBack     = document.getElementById('btn-back');
+  const btnFwd      = document.getElementById('btn-forward');
+  const btnReload   = document.getElementById('btn-reload');
+  const btnHome     = document.getElementById('btn-home');
+  const progressBar = document.getElementById('progress-bar');
+  const statusText  = document.getElementById('status-text');
+  const titleText   = document.getElementById('title-text');
+
+  // ── Tab management ───────────────────────────────────────
+  function createTab(url) {
+    const id = ++tabIdCounter;
+    tabs[id] = { url: url || '', title: 'New Tab', history: [], histIdx: -1 };
+
+    // Tab strip element
+    const tab = document.createElement('div');
+    tab.className = 'tab';
+    tab.dataset.id = id;
+    tab.innerHTML = `
+      <svg class="tab-favicon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 1C8 1 5 4 5 8s3 7 3 7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M8 1C8 1 11 4 11 8s-3 7-3 7" stroke="currentColor" stroke-width="1.5"/>
+        <path d="M1.5 8h13" stroke="currentColor" stroke-width="1.5"/>
+      </svg>
+      <span class="tab-title">New Tab</span>
+      <span class="tab-close" title="Close tab">&times;</span>`;
+    tab.querySelector('.tab-close').addEventListener('click', e => {
+      e.stopPropagation();
+      closeTab(id);
+    });
+    tab.addEventListener('click', () => switchTab(id));
+    tabBar.insertBefore(tab, newTabBtn);
+
+    // Panel
+    const panel = document.createElement('div');
+    panel.className = 'tab-panel';
+    panel.dataset.id = id;
+    panel.innerHTML = buildStartPage();
+    tabContent.appendChild(panel);
+
+    switchTab(id);
+    if (url) navigateTo(id, url);
+    return id;
+  }
+
+  function closeTab(id) {
+    if (Object.keys(tabs).length === 1) { createTab(); }
+    const ids = Object.keys(tabs).map(Number);
+    const idx = ids.indexOf(id);
+    const nextId = ids[idx + 1] || ids[idx - 1];
+    delete tabs[id];
+    tabBar.querySelector(`.tab[data-id="${id}"]`).remove();
+    tabContent.querySelector(`.tab-panel[data-id="${id}"]`).remove();
+    if (activeTabId === id) switchTab(nextId);
+  }
+
+  function switchTab(id) {
+    activeTabId = id;
+    document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', +t.dataset.id === id));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', +p.dataset.id === id));
+    const tab = tabs[id];
+    urlInput.value = tab.url || '';
+    updateScheme(tab.url);
+    updateNavButtons(id);
+    titleText.textContent = tab.title !== 'New Tab' ? tab.title : 'remote-browser';
+    statusText.textContent = tab.url ? `Loaded: ${tab.url}` : 'Ready';
+  }
+
+  // ── Navigation ───────────────────────────────────────────
+  function navigateTo(id, rawUrl) {
+    let url = rawUrl.trim();
+    if (!url) return;
+
+    // If it looks like a search query, redirect to DuckDuckGo
+    if (!url.match(/^https?:\/\//) && !url.match(/^[\w\-]+\.[a-z]{2,}/i)) {
+      url = 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
+    }
+    if (!url.startsWith('http://') && !url.startsWith('https://')) {
+      url = 'https://' + url;
+    }
+
+    const tab = tabs[id];
+    // Push to history
+    tab.history = tab.history.slice(0, tab.histIdx + 1);
+    tab.history.push(url);
+    tab.histIdx = tab.history.length - 1;
+    tab.url = url;
+
+    urlInput.value = url;
+    updateScheme(url);
+    updateNavButtons(id);
+
+    setTabLoading(id, true);
+    showProgress();
+    statusText.textContent = `Loading ${url}…`;
+
+    const panel = tabContent.querySelector(`.tab-panel[data-id="${id}"]`);
+    panel.innerHTML = '';
+
+    const iframe = document.createElement('iframe');
+    iframe.className = 'browser-frame';
+    iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-popups';
+    iframe.src = '/fetch?url=' + encodeURIComponent(url);
+
+    iframe.addEventListener('load', () => {
+      setTabLoading(id, false);
+      doneProgress();
+      // Try to extract title from iframe (may fail cross-origin)
+      let title = url;
+      try { title = iframe.contentDocument.title || url; } catch (_) {}
+      setTabTitle(id, title || url);
+      statusText.textContent = `Loaded: ${url}`;
+    });
+    iframe.addEventListener('error', () => {
+      setTabLoading(id, false);
+      doneProgress();
+      showError(id, url);
+    });
+
+    panel.appendChild(iframe);
+  }
+
+  function goBack(id) {
+    const tab = tabs[id];
+    if (tab.histIdx <= 0) return;
+    tab.histIdx--;
+    const url = tab.history[tab.histIdx];
+    tab.url = url;
+    urlInput.value = url;
+    updateScheme(url);
+    updateNavButtons(id);
+    reloadCurrentFrame(id, url);
+  }
+
+  function goForward(id) {
+    const tab = tabs[id];
+    if (tab.histIdx >= tab.history.length - 1) return;
+    tab.histIdx++;
+    const url = tab.history[tab.histIdx];
+    tab.url = url;
+    urlInput.value = url;
+    updateScheme(url);
+    updateNavButtons(id);
+    reloadCurrentFrame(id, url);
+  }
+
+  function reloadCurrentFrame(id, url) {
+    setTabLoading(id, true);
+    showProgress();
+    statusText.textContent = `Loading ${url}…`;
+    const panel = tabContent.querySelector(`.tab-panel[data-id="${id}"]`);
+    const iframe = panel.querySelector('iframe');
+    if (iframe) {
+      iframe.src = '/fetch?url=' + encodeURIComponent(url);
+      iframe.addEventListener('load', () => {
+        setTabLoading(id, false); doneProgress();
+        statusText.textContent = `Loaded: ${url}`;
+      }, { once: true });
+    }
+  }
+
+  // ── UI helpers ───────────────────────────────────────────
+  function buildStartPage() {
+    return `<div class="start-page">
+      <div class="start-logo">remote<span>://</span>browser</div>
+      <div class="start-subtitle">// server-side proxy · render.com</div>
+      <div class="start-search">
+        <input type="text" placeholder="Enter URL or search…" id="start-input-${tabIdCounter + 1}" autocomplete="off" />
+        <button id="start-go-${tabIdCounter + 1}">Go</button>
+      </div>
+      <div class="quicklinks">
+        <div class="quicklink" data-url="https://example.com">example.com</div>
+        <div class="quicklink" data-url="https://news.ycombinator.com">Hacker News</div>
+        <div class="quicklink" data-url="https://wikipedia.org">Wikipedia</div>
+        <div class="quicklink" data-url="https://duckduckgo.com">DuckDuckGo</div>
+      </div>
+    </div>`;
+  }
+
+  function attachStartPageHandlers(panel) {
+    const inp = panel.querySelector('[id^="start-input-"]');
+    const btn = panel.querySelector('[id^="start-go-"]');
+    if (!inp || !btn) return;
+    const submit = () => { if (inp.value.trim()) navigateTo(activeTabId, inp.value.trim()); };
+    btn.addEventListener('click', submit);
+    inp.addEventListener('keydown', e => { if (e.key === 'Enter') submit(); });
+    panel.querySelectorAll('.quicklink').forEach(ql => {
+      ql.addEventListener('click', () => navigateTo(activeTabId, ql.dataset.url));
+    });
+  }
+
+  function showError(id, url) {
+    const panel = tabContent.querySelector(`.tab-panel[data-id="${id}"]`);
+    panel.innerHTML = `<div class="error-page">
+      <div class="error-code">ERR</div>
+      <div class="error-msg">Could not load <strong>${url}</strong>.<br>The page may be unavailable or blocked.</div>
+      <button class="error-retry">Try again</button>
+    </div>`;
+    panel.querySelector('.error-retry').addEventListener('click', () => navigateTo(id, url));
+    setTabTitle(id, 'Error');
+    statusText.textContent = `Failed to load: ${url}`;
+  }
+
+  function setTabTitle(id, title) {
+    const short = title.length > 22 ? title.slice(0, 20) + '…' : title;
+    tabs[id].title = short;
+    const el = tabBar.querySelector(`.tab[data-id="${id}"] .tab-title`);
+    if (el) el.textContent = short;
+    if (id === activeTabId) titleText.textContent = short;
+  }
+
+  function setTabLoading(id, loading) {
+    const tab = tabBar.querySelector(`.tab[data-id="${id}"]`);
+    if (!tab) return;
+    tab.classList.toggle('tab-loading', loading);
+    const favicon = tab.querySelector('.tab-favicon');
+    if (favicon) favicon.style.opacity = loading ? '1' : '0.7';
+  }
+
+  function updateNavButtons(id) {
+    const tab = tabs[id];
+    btnBack.disabled    = tab.histIdx <= 0;
+    btnFwd.disabled     = tab.histIdx >= tab.history.length - 1;
+  }
+
+  function updateScheme(url) {
+    if (url.startsWith('https://')) {
+      schemeBadge.textContent = 'https';
+      schemeBadge.className = 'scheme-badge';
+    } else if (url.startsWith('http://')) {
+      schemeBadge.textContent = 'http';
+      schemeBadge.className = 'scheme-badge insecure';
+    } else {
+      schemeBadge.textContent = '—';
+      schemeBadge.className = 'scheme-badge insecure';
+    }
+  }
+
+  function showProgress() {
+    progressBar.style.transition = 'width 0.3s ease';
+    progressBar.classList.remove('done');
+    progressBar.style.width = '0%';
+    requestAnimationFrame(() => { progressBar.style.width = '70%'; });
+  }
+  function doneProgress() {
+    progressBar.style.transition = 'width 0.15s ease';
+    progressBar.style.width = '100%';
+    setTimeout(() => progressBar.classList.add('done'), 200);
+    setTimeout(() => { progressBar.style.width = '0%'; progressBar.classList.remove('done'); }, 800);
+  }
+
+  // ── Toolbar event listeners ──────────────────────────────
+  goBtn.addEventListener('click', () => navigateTo(activeTabId, urlInput.value));
+  urlInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') navigateTo(activeTabId, urlInput.value);
+  });
+  urlInput.addEventListener('input', () => updateScheme(urlInput.value));
+  btnBack.addEventListener('click',   () => goBack(activeTabId));
+  btnFwd.addEventListener('click',    () => goForward(activeTabId));
+  btnReload.addEventListener('click', () => {
+    const tab = tabs[activeTabId];
+    if (tab.url) reloadCurrentFrame(activeTabId, tab.url);
+  });
+  btnHome.addEventListener('click', () => {
+    const tab = tabs[activeTabId];
+    tab.url = '';
+    tab.history = [];
+    tab.histIdx = -1;
+    urlInput.value = '';
+    updateScheme('');
+    updateNavButtons(activeTabId);
+    const panel = tabContent.querySelector(`.tab-panel[data-id="${activeTabId}"]`);
+    panel.innerHTML = buildStartPage();
+    attachStartPageHandlers(panel);
+    setTabTitle(activeTabId, 'New Tab');
+    statusText.textContent = 'Ready';
+  });
+  newTabBtn.addEventListener('click', () => createTab());
+
+  // Intercept start-page events after panel insertion
+  const observer = new MutationObserver(mutations => {
+    mutations.forEach(m => m.addedNodes.forEach(node => {
+      if (node.classList && node.classList.contains('tab-panel')) {
+        attachStartPageHandlers(node);
+      }
+    }));
+  });
+  observer.observe(tabContent, { childList: true });
+
+  // ── Boot ─────────────────────────────────────────────────
+  createTab();
+})();
+</script>
 </body>
 </html>
