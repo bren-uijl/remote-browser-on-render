@@ -7,7 +7,7 @@ from urllib.parse import urljoin, quote, urlparse
 import requests
 from flask import Flask, request, render_template, jsonify, Response
 
-VERSION = "1.0.4"
+VERSION = "1.0.5"
 app = Flask(__name__)
 
 # Private/reserved IP ranges blocked for SSRF protection
@@ -198,6 +198,22 @@ def fetch_route():
 
             html = _rewrite_html(html, url, proxy_base)
             html = _rewrite_css(html, url, proxy_base)   # covers inline <style> blocks
+
+            # Inject the runtime intercept script as the very first thing inside
+            # <head> so it is active before any other script on the page runs.
+            # It patches fetch/XHR/src-writes so lazy-loaded resources also go
+            # through the proxy instead of hitting the original host directly.
+            inject = (
+                f'<script>window.__PROXY_BASE__={repr(proxy_base)};</script>'
+                '<script src="/static/proxy-intercept.js"></script>'
+            )
+            html = re.sub(
+                r'(<head[^>]*>)',
+                r'\1' + inject,
+                html, count=1, flags=re.IGNORECASE,
+            )
+            if '<head' not in html.lower():
+                html = inject + html
 
             content = html.encode(encoding, errors="replace")
 
