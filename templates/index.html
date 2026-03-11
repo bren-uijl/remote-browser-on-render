@@ -550,7 +550,7 @@
 
     const iframe = document.createElement('iframe');
     iframe.className = 'browser-frame';
-    iframe.sandbox = 'allow-scripts allow-same-origin allow-forms allow-popups';
+    
     iframe.src = '/fetch?url=' + encodeURIComponent(url);
 
     iframe.addEventListener('load', () => {
