@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.0.7"
+VERSION = "1.0.8"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -193,6 +193,16 @@ _STRIP_REQUEST_HEADERS = {
 }
 
 # ── Routes ────────────────────────────────────────────────────────────────────
+@app.route("/static/proxy-intercept.js")
+def serve_intercept():
+    """Serve with no-cache so browsers always get the latest version."""
+    from flask import send_from_directory
+    resp = send_from_directory(app.static_folder, "proxy-intercept.js")
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
+
+
 @app.route("/")
 def index():
     resp = Response(render_template("index.html", version=VERSION))
@@ -240,7 +250,7 @@ def fetch_route():
             inject = (
                 f'<script>window.__PROXY_BASE__={json.dumps(proxy_base)};'
                 f'window.__PAGE_URL__={json.dumps(url)};</script>'
-                '<script src="/static/proxy-intercept.js"></script>'
+                f'<script src="/static/proxy-intercept.js?v={VERSION}"></script>'
             )
             if re.search(r'<head', html, re.IGNORECASE):
                 html = re.sub(r'(<head[^>]*>)', r'\1' + inject, html, count=1, flags=re.IGNORECASE)

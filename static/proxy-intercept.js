@@ -1,139 +1,148 @@
 /**
- * proxy-intercept.js – injected as first script in every proxied page.
+ * proxy-intercept.js  v1.0.8
  *
- * Patches fetch / XHR / src-writes / sendBeacon so runtime network calls
- * (lazy loaders, SPA routers, ad scripts …) route through the proxy.
+ * Injected as the FIRST script in every proxied page.
+ * Routes ALL runtime network calls through the proxy.
  *
- * window.__PROXY_BASE__  e.g. https://myproxy.onrender.com
- * window.__PAGE_URL__    e.g. https://topgear.com/  (the proxied target)
+ * window.__PROXY_BASE__  = "https://myproxy.onrender.com"   (no trailing slash)
+ * window.__PAGE_URL__    = "https://targetsite.com/path"    (the proxied URL)
  */
 (function (PROXY_BASE, PAGE_URL) {
   'use strict';
 
-  var pageOrigin = '';
-  try { pageOrigin = new URL(PAGE_URL).origin; } catch (_) {}
+  if (!PROXY_BASE) return; // safety: don't run if not injected properly
 
-  // ── Helpers ───────────────────────────────────────────────────────────────
+  /* ── helpers ──────────────────────────────────────────────────────────── */
 
+  /**
+   * Resolve any URL string to an absolute https:// URL.
+   * Uses PAGE_URL as the base for relative paths.
+   */
   function toAbsolute(url) {
-    if (/^https?:\/\//.test(url)) return url;
-    if (url.indexOf('//') === 0) return 'https:' + url;
-    // Root-relative or path-relative → resolve against the *target page*,
-    // NOT the proxy origin.  This is the key fix for the self-proxy loop.
-    try { return new URL(url, PAGE_URL).href; } catch (_) { return url; }
+    if (!url || typeof url !== 'string') return '';
+    // Already absolute
+    if (/^https?:\/\//.test(url)) return url.replace(/^http:\/\//, 'https://');
+    // Protocol-relative
+    if (url.slice(0, 2) === '//') return 'https:' + url;
+    // Relative (root-relative or path-relative) – resolve against the target page
+    try { return new URL(url, PAGE_URL).href.replace(/^http:\/\//, 'https://'); }
+    catch (_) { return url; }
   }
 
+  /**
+   * Return the full /fetch?url=... proxy URL.
+   */
   function proxyUrl(url) {
-    var abs = toAbsolute(url).replace(/^http:\/\//, 'https://');
-    return PROXY_BASE + '/fetch?url=' + encodeURIComponent(abs);
+    return PROXY_BASE + '/fetch?url=' + encodeURIComponent(toAbsolute(url));
   }
 
-  function shouldProxy(url) {
+  /**
+   * Decide whether a URL needs to be proxied.
+   * Key invariant: if the resolved absolute URL starts with PROXY_BASE
+   * it is ALREADY on our server → never proxy it again.
+   */
+  function needsProxy(url) {
     if (!url || typeof url !== 'string') return false;
-
-    // ── Never proxy these ──────────────────────────────────────────────────
-    // Already proxied
-    if (url.indexOf(PROXY_BASE) === 0)        return false;
-    if (url.indexOf('/fetch?url=') === 0)     return false;
-    // Safe non-http schemes
-    if (/^(data:|blob:|javascript:|mailto:|tel:|#)/.test(url)) return false;
-
-    // ── Absolute URLs ──────────────────────────────────────────────────────
-    if (/^https?:\/\//.test(url) || url.indexOf('//') === 0) {
-      // If this URL points to our own proxy server, never proxy it
-      // (e.g. /fetch?url=... or static assets served by Flask)
-      var abs = toAbsolute(url);
-      if (abs.indexOf(PROXY_BASE) === 0) return false;
-      return true;
-    }
-
-    // ── Relative URLs (root-relative or path-relative) ─────────────────────
-    // Resolve against PAGE_URL first, then check it's not our own server
-    if (url.indexOf('/') === 0 || url.indexOf('.') === 0) {
-      if (!PAGE_URL) return false;  // no page context – skip
-      try {
-        var resolved = new URL(url, PAGE_URL).href;
-        if (resolved.indexOf(PROXY_BASE) === 0) return false;  // own server
-        return true;
-      } catch (_) { return false; }
-    }
-
-    return false;
+    // Safe schemes – never touch
+    if (/^(data:|blob:|javascript:|mailto:|tel:|#|about:)/.test(url)) return false;
+    // Resolve to absolute first so we can do a clean domain check
+    var abs = toAbsolute(url);
+    if (!abs) return false;
+    // Already points to our proxy server (static files, /fetch routes, etc.)
+    if (abs.slice(0, PROXY_BASE.length) === PROXY_BASE) return false;
+    // Already going through the proxy (shouldn't normally happen but be safe)
+    if (abs.indexOf('/fetch?url=') !== -1) return false;
+    // Everything else that resolved to an http(s) URL needs proxying
+    return /^https:\/\//.test(abs);
   }
 
-  // ── 1. window.fetch ───────────────────────────────────────────────────────
-  var _origFetch = window.fetch.bind(window);
+  /* ── 1. fetch() ───────────────────────────────────────────────────────── */
+  var _fetch = window.fetch.bind(window);
   window.fetch = function (input, init) {
     try {
-      if (typeof input === 'string' && shouldProxy(input)) {
-        input = proxyUrl(input);
-      } else if (input && typeof input === 'object' && input.url && shouldProxy(input.url)) {
-        input = new Request(proxyUrl(input.url), input);
+      var url = typeof input === 'string' ? input
+              : (input && input.url) ? input.url : null;
+      if (url && needsProxy(url)) {
+        var px = proxyUrl(url);
+        input = typeof input === 'string' ? px : new Request(px, input);
       }
     } catch (_) {}
-    return _origFetch(input, init);
+    return _fetch(input, init);
   };
 
-  // ── 2. XMLHttpRequest ─────────────────────────────────────────────────────
-  var _origXHROpen = XMLHttpRequest.prototype.open;
-  XMLHttpRequest.prototype.open = function (method, url) {
+  /* ── 2. XMLHttpRequest ────────────────────────────────────────────────── */
+  var _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function () {
     var args = Array.prototype.slice.call(arguments);
     try {
-      if (typeof url === 'string' && shouldProxy(url)) args[1] = proxyUrl(url);
+      if (typeof args[1] === 'string' && needsProxy(args[1]))
+        args[1] = proxyUrl(args[1]);
     } catch (_) {}
-    return _origXHROpen.apply(this, args);
+    return _xhrOpen.apply(this, args);
   };
 
-  // ── 3. Element.setAttribute ───────────────────────────────────────────────
-  var _PROXIED_ATTRS = {
-    src: 1, href: 1, action: 1, poster: 1,
-    'data-src': 1, 'data-lazy-src': 1, 'data-original': 1, 'data-bg': 1
-  };
-  var _origSetAttr = Element.prototype.setAttribute;
-  Element.prototype.setAttribute = function (name, value) {
+  /* ── 3. Element.setAttribute ─────────────────────────────────────────── */
+  var _ATTR = { src:1, href:1, action:1, poster:1,
+                'data-src':1, 'data-lazy-src':1, 'data-original':1,
+                'data-bg':1, 'data-url':1 };
+  var _setAttr = Element.prototype.setAttribute;
+  Element.prototype.setAttribute = function (name, val) {
     try {
-      if (_PROXIED_ATTRS[name.toLowerCase()] && typeof value === 'string' && shouldProxy(value)) {
-        value = proxyUrl(value);
-      }
+      if (typeof val === 'string' && _ATTR[name.toLowerCase()] && needsProxy(val))
+        val = proxyUrl(val);
     } catch (_) {}
-    return _origSetAttr.call(this, name, value);
+    return _setAttr.call(this, name, val);
   };
 
-  // ── 4. Direct .src / .href property writes ────────────────────────────────
-  function trapProp(proto, prop) {
-    var desc = Object.getOwnPropertyDescriptor(proto, prop);
-    if (!desc || !desc.set) return;
-    var origSet = desc.set;
-    Object.defineProperty(proto, prop, {
+  /* ── 4. Direct property writes (.src, .href) ─────────────────────────── */
+  function trap(Cls, prop) {
+    if (!Cls || !Cls.prototype) return;
+    var d = Object.getOwnPropertyDescriptor(Cls.prototype, prop);
+    if (!d || !d.set) return;
+    var orig = d.set;
+    Object.defineProperty(Cls.prototype, prop, {
+      configurable: true, enumerable: d.enumerable,
+      get: d.get,
       set: function (v) {
-        try { if (typeof v === 'string' && shouldProxy(v)) v = proxyUrl(v); } catch (_) {}
-        origSet.call(this, v);
-      },
-      get: desc.get,
-      configurable: true,
-      enumerable: desc.enumerable,
+        try { if (typeof v === 'string' && needsProxy(v)) v = proxyUrl(v); }
+        catch (_) {}
+        orig.call(this, v);
+      }
     });
   }
-
   [HTMLImageElement, HTMLScriptElement, HTMLIFrameElement,
    HTMLSourceElement, HTMLVideoElement, HTMLAudioElement, HTMLTrackElement
-  ].forEach(function (C) { try { trapProp(C.prototype, 'src'); } catch (_) {} });
-  try { trapProp(HTMLLinkElement.prototype, 'href'); } catch (_) {}
+  ].forEach(function (C) { trap(C, 'src'); });
+  trap(HTMLLinkElement, 'href');
 
-  // ── 5. navigator.sendBeacon ───────────────────────────────────────────────
+  /* ── 5. sendBeacon ───────────────────────────────────────────────────── */
   if (navigator.sendBeacon) {
-    var _origBeacon = navigator.sendBeacon.bind(navigator);
+    var _beacon = navigator.sendBeacon.bind(navigator);
     navigator.sendBeacon = function (url, data) {
-      try { if (shouldProxy(url)) url = proxyUrl(url); } catch (_) {}
-      return _origBeacon(url, data);
+      try { if (needsProxy(url)) url = proxyUrl(url); } catch (_) {}
+      return _beacon(url, data);
     };
   }
 
-  // ── 6. window.open ────────────────────────────────────────────────────────
-  var _origWindowOpen = window.open;
-  window.open = function (url, target, features) {
-    try { if (url && shouldProxy(url)) url = proxyUrl(url); } catch (_) {}
-    return _origWindowOpen.call(window, url, target, features);
+  /* ── 6. window.open ──────────────────────────────────────────────────── */
+  var _open = window.open;
+  window.open = function (url, target, feat) {
+    try { if (url && needsProxy(url)) url = proxyUrl(url); } catch (_) {}
+    return _open.call(window, url, target, feat);
   };
+
+  /* ── 7. history.pushState / replaceState ─────────────────────────────── */
+  // When an SPA navigates, update __PAGE_URL__ so relative URLs keep resolving
+  // correctly (especially important for Next.js client-side routing).
+  function wrapHistory(method) {
+    var orig = history[method];
+    history[method] = function (state, title, url) {
+      if (url) {
+        try { PAGE_URL = toAbsolute(url); } catch (_) {}
+      }
+      return orig.apply(history, arguments);
+    };
+  }
+  try { wrapHistory('pushState'); wrapHistory('replaceState'); } catch (_) {}
 
 }(window.__PROXY_BASE__ || '', window.__PAGE_URL__ || ''));
