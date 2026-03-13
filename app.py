@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.0.6"
+VERSION = "1.0.7"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -238,7 +238,8 @@ def fetch_route():
             html = _rewrite_css(html, url, proxy_base)
 
             inject = (
-                f'<script>window.__PROXY_BASE__={json.dumps(proxy_base)};</script>'
+                f'<script>window.__PROXY_BASE__={json.dumps(proxy_base)};'
+                f'window.__PAGE_URL__={json.dumps(url)};</script>'
                 '<script src="/static/proxy-intercept.js"></script>'
             )
             if re.search(r'<head', html, re.IGNORECASE):
