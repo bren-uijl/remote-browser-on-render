@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.0"
+VERSION = "1.1.1"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -522,8 +522,38 @@ def catch_all(asset_path):
 
         safe, _ = _is_safe_url(target_url)
         if safe:
-            from flask import redirect
-            return redirect("/fetch?url=" + quote(target_url, safe=""), code=302)
+            # Proxy directly — DO NOT redirect.
+            # A 302 would cause the browser to lose Range headers (breaks
+            # video/binary streaming) and webpack to retry indefinitely.
+            sid = request.cookies.get(SESSION_COOKIE, "anonymous")
+            sess = _get_session(sid)
+            fwd = {k: v for k, v in request.headers
+                   if k.lower() not in _STRIP_REQUEST_HEADERS}
+            fwd["Host"] = urlparse(target_url).netloc
+            req_body = request.get_data() if request.method in ("POST","PUT","PATCH") else None
+            try:
+                r = sess.request(
+                    method=request.method,
+                    url=target_url,
+                    headers=fwd,
+                    data=req_body,
+                    timeout=30,
+                    verify=True,
+                    allow_redirects=True,
+                    stream=True,
+                )
+                out_headers = {k: v for k, v in r.headers.items()
+                               if k.lower() not in _STRIP_RESPONSE_HEADERS}
+                out_headers.pop("Content-Length", None)  # chunked transfer
+                return Response(
+                    r.iter_content(chunk_size=65536),
+                    status=r.status_code,
+                    content_type=r.headers.get("Content-Type", "application/octet-stream"),
+                    headers=out_headers,
+                    direct_passthrough=True,
+                )
+            except Exception as e:
+                return jsonify({"error": str(e)}), 502
 
     return jsonify({"error": f"Not found: /{asset_path}"}), 404
 
