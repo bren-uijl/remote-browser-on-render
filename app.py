@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.1"
+VERSION = "1.1.2"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -246,7 +246,7 @@ def fetch_route():
             verify=True,
             headers=fwd_headers,
             data=req_body,
-            allow_redirects=True,
+            allow_redirects=False,  # handle redirects ourselves to rewrite Location
         )
         content_type = resp.headers.get("Content-Type", "text/html")
 
@@ -280,6 +280,11 @@ def fetch_route():
             k: v for k, v in resp.headers.items()
             if k.lower() not in _STRIP_RESPONSE_HEADERS
         }
+        # Rewrite Location header so browser follows the redirect through our proxy
+        if "Location" in out_headers:
+            loc = out_headers["Location"]
+            abs_loc = urljoin(url, loc).replace("http://", "https://")
+            out_headers["Location"] = proxy_base + "/fetch?url=" + quote(abs_loc, safe="")
         # Forward cookies back to client via Set-Cookie,
         # but rewrite domain so the browser accepts them from our origin
         for cookie in resp.cookies:
@@ -495,8 +500,12 @@ def catch_all(asset_path):
     from urllib.parse import parse_qs, unquote
 
     referer = request.headers.get("Referer", "")
-    # Our own static files must never be caught here
-    if asset_path.startswith("static/"):
+    # Our own static files and API routes must never be caught here
+    if asset_path.startswith(("static/", "fetch", "ai/", "version")):
+        return jsonify({"error": "Not found"}), 404
+
+    # Reject obviously invalid paths
+    if not asset_path or asset_path.startswith("fetch?"):
         return jsonify({"error": "Not found"}), 404
 
     page_url = ""
@@ -539,12 +548,17 @@ def catch_all(asset_path):
                     data=req_body,
                     timeout=30,
                     verify=True,
-                    allow_redirects=True,
+                    allow_redirects=False,
                     stream=True,
                 )
                 out_headers = {k: v for k, v in r.headers.items()
                                if k.lower() not in _STRIP_RESPONSE_HEADERS}
                 out_headers.pop("Content-Length", None)  # chunked transfer
+                if "Location" in out_headers:
+                    loc = out_headers["Location"]
+                    abs_loc = urljoin(target_url, loc).replace("http://", "https://")
+                    pb = _proxy_base()
+                    out_headers["Location"] = pb + "/fetch?url=" + quote(abs_loc, safe="")
                 return Response(
                     r.iter_content(chunk_size=65536),
                     status=r.status_code,
