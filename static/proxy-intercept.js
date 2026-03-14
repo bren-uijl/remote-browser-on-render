@@ -146,3 +146,59 @@
   try { wrapHistory('pushState'); wrapHistory('replaceState'); } catch (_) {}
 
 }(window.__PROXY_BASE__ || '', window.__PAGE_URL__ || ''));
+
+/* ── 8. Webpack public path interception ─────────────────────────────────
+ *
+ * Webpack stores the CDN base URL in __webpack_require__.p (e.g.
+ * "https://github.githubassets.com/assets/"). Dynamic import() uses
+ * this path to build chunk URLs — and that's a native feature we can't
+ * patch via fetch/XHR hooks.
+ *
+ * Fix: watch for __webpack_require__ being created on window, then
+ * rewrite its .p property through the proxy so every chunk URL that
+ * webpack builds is already pointing at our /fetch?url= endpoint.
+ */
+(function () {
+  function patchWebpackRequire(wr) {
+    if (!wr || wr.__proxied__) return;
+    wr.__proxied__ = true;
+    var currentP = wr.p || '';
+    function proxyPath(p) {
+      if (!p || !needsProxy(p)) return p;
+      var abs = toAbsolute(p).replace(/\/?$/, '/');
+      return PROXY_BASE + '/fetch?url=' + encodeURIComponent(abs);
+    }
+    try {
+      Object.defineProperty(wr, 'p', {
+        configurable: true,
+        enumerable: true,
+        get: function () { return proxyPath(currentP); },
+        set: function (v) { currentP = v; }
+      });
+    } catch (_) {}
+  }
+
+  // Intercept when webpack assigns __webpack_require__ to window
+  var _wr = window.__webpack_require__;
+  if (_wr) patchWebpackRequire(_wr);
+  try {
+    Object.defineProperty(window, '__webpack_require__', {
+      configurable: true,
+      get: function () { return _wr; },
+      set: function (v) { _wr = v; patchWebpackRequire(v); }
+    });
+  } catch (_) {}
+
+  // Also catch Next.js / Turbopack variants
+  ['__next_require__', '__turbopack_require__'].forEach(function (k) {
+    var _v = window[k];
+    if (_v) patchWebpackRequire(_v);
+    try {
+      Object.defineProperty(window, k, {
+        configurable: true,
+        get: function () { return _v; },
+        set: function (v) { _v = v; patchWebpackRequire(v); }
+      });
+    } catch (_) {}
+  });
+}());

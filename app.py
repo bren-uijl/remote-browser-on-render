@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.2"
+VERSION = "1.1.3"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -30,6 +30,30 @@ AI_MODEL = "openai/gpt-oss-120b"
 _sessions: dict[str, requests.Session] = {}
 _sessions_lock = threading.Lock()
 SESSION_COOKIE = "_rbsid"
+
+# Per-session CDN origin map: sid → set of origins found in proxied HTML
+# e.g. {"abc123": {"https://github.githubassets.com", "https://avatars.githubusercontent.com"}}
+_cdn_origins: dict[str, set] = {}
+_cdn_lock = threading.Lock()
+
+def _store_cdn_origins(sid: str, html: str) -> None:
+    """Extract all external script/link origins from HTML and store for catch-all use."""
+    origins = set()
+    pattern = r'(?:src|href)=(["\'])(https://[^/"\' \t>]+)'
+    for m in re.finditer(pattern, html, re.IGNORECASE):
+        try:
+            p = urlparse(m.group(1))
+            if p.scheme and p.netloc:
+                origins.add(f"{p.scheme}://{p.netloc}")
+        except Exception:
+            pass
+    if origins:
+        with _cdn_lock:
+            _cdn_origins.setdefault(sid, set()).update(origins)
+
+def _get_cdn_origins(sid: str) -> list[str]:
+    with _cdn_lock:
+        return list(_cdn_origins.get(sid, []))
 
 def _get_session(sid: str) -> requests.Session:
     with _sessions_lock:
@@ -255,6 +279,8 @@ def fetch_route():
             html = resp.text
 
             html = re.sub(r'<base[^>]*>', '', html, flags=re.IGNORECASE)
+            # Store CDN origins for catch-all chunk resolution
+            _store_cdn_origins(sid, html)
             html = _rewrite_html(html, url, proxy_base)
             html = _rewrite_css(html, url, proxy_base)
 
@@ -559,6 +585,46 @@ def catch_all(asset_path):
                     abs_loc = urljoin(target_url, loc).replace("http://", "https://")
                     pb = _proxy_base()
                     out_headers["Location"] = pb + "/fetch?url=" + quote(abs_loc, safe="")
+                # If target returns 404, try CDN origins found on the page
+                if r.status_code == 404:
+                    cdn_origins = _get_cdn_origins(sid)
+                    for cdn in cdn_origins:
+                        cdn_url = cdn + "/" + asset_path
+                        if request.query_string:
+                            cdn_url += "?" + request.query_string.decode("utf-8", errors="replace")
+                        try:
+                            safe2, _ = _is_safe_url(cdn_url)
+                            if not safe2:
+                                continue
+                            r2 = sess.request(
+                                method=request.method,
+                                url=cdn_url,
+                                headers={**fwd, "Host": urlparse(cdn_url).netloc},
+                                data=req_body,
+                                timeout=15,
+                                verify=True,
+                                allow_redirects=False,
+                                stream=True,
+                            )
+                            if r2.status_code != 404:
+                                out2 = {k: v for k, v in r2.headers.items()
+                                        if k.lower() not in _STRIP_RESPONSE_HEADERS}
+                                out2.pop("Content-Length", None)
+                                if "Location" in out2:
+                                    loc = out2["Location"]
+                                    abs_loc = urljoin(cdn_url, loc).replace("http://", "https://")
+                                    pb = _proxy_base()
+                                    out2["Location"] = pb + "/fetch?url=" + quote(abs_loc, safe="")
+                                return Response(
+                                    r2.iter_content(chunk_size=65536),
+                                    status=r2.status_code,
+                                    content_type=r2.headers.get("Content-Type", "application/octet-stream"),
+                                    headers=out2,
+                                    direct_passthrough=True,
+                                )
+                        except Exception:
+                            continue
+
                 return Response(
                     r.iter_content(chunk_size=65536),
                     status=r.status_code,
