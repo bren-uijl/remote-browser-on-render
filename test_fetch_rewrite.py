@@ -162,3 +162,61 @@ class TestFetchRewrite(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+
+class TestCatchAll(unittest.TestCase):
+    def setUp(self):
+        self.client = app.test_client()
+
+    @patch('socket.getaddrinfo', side_effect=_safe_dns)
+    def test_dynamic_import_chunk_redirected(self, _dns):
+        """Root-relative chunk from dynamic import() is redirected through proxy."""
+        r = self.client.get(
+            '/chunk-30351-a96c50cd39c1e46c.js',
+            headers={'Referer': 'http://localhost/fetch?url=https%3A%2F%2Fgithub.com%2F'}
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('fetch?url=https%3A%2F%2Fgithub.com%2Fchunk-30351', r.headers['Location'])
+
+    @patch('socket.getaddrinfo', side_effect=_safe_dns)
+    def test_chunk_with_query_string_preserved(self, _dns):
+        """Query string (e.g. webpack retry ?&r=1) is preserved in redirect."""
+        r = self.client.get(
+            '/chunk-abc.js?&r=1',
+            headers={'Referer': 'http://localhost/fetch?url=https%3A%2F%2Fgithub.com%2F'}
+        )
+        self.assertEqual(r.status_code, 302)
+        # Location should contain the encoded query string (?&r=1 → %3F%26r%3D1 or similar)
+        self.assertIn('chunk-abc.js', r.headers['Location'])
+        self.assertIn('r%3D1', r.headers['Location'])
+
+    @patch('socket.getaddrinfo', side_effect=_safe_dns)
+    def test_referer_is_proxied_js_file(self, _dns):
+        """Referer can itself be a proxied JS file (chunk loaded another chunk)."""
+        r = self.client.get(
+            '/_next/static/chunks/sub-chunk.js',
+            headers={'Referer': 'http://localhost/fetch?url=https%3A%2F%2Fgithub.com%2F_next%2Fstatic%2Fchunks%2Fmain.js'}
+        )
+        self.assertEqual(r.status_code, 302)
+        self.assertIn('github.com', r.headers['Location'])
+        self.assertIn('sub-chunk.js', r.headers['Location'])
+
+    def test_no_referer_returns_404(self):
+        """Without Referer, catch-all must not proxy anything."""
+        r = self.client.get('/some-random-path')
+        self.assertEqual(r.status_code, 404)
+
+    def test_static_not_caught(self):
+        """Our own static files must not be swallowed by catch-all."""
+        r = self.client.get('/static/proxy-intercept.js')
+        self.assertEqual(r.status_code, 200)
+
+    @patch('socket.getaddrinfo', side_effect=_private_dns)
+    def test_ssrf_via_catch_all_blocked(self, _dns):
+        """Catch-all must not be used to bypass SSRF protection."""
+        r = self.client.get(
+            '/secret',
+            headers={'Referer': 'http://localhost/fetch?url=http%3A%2F%2F192.168.1.1%2F'}
+        )
+        # SSRF check fails → no redirect
+        self.assertNotEqual(r.status_code, 302)

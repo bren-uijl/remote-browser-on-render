@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.0.8"
+VERSION = "1.0.9"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -465,6 +465,56 @@ def ai_chat():
             "X-Accel-Buffering": "no",   # Disable nginx buffering on Render
         }
     )
+
+
+@app.route("/<path:asset_path>")
+def catch_all(asset_path):
+    """
+    Catch assets that land on our server instead of going through /fetch?url=.
+
+    This happens with dynamic import() and webpack public-path chunk loading:
+    the browser resolves root-relative paths like /chunk-abc.js against the
+    iframe origin (our server) rather than the target site. JS patching cannot
+    intercept native dynamic import() — a server-side redirect is the only fix.
+
+    Strategy: inspect the Referer header to find which proxied page triggered
+    this request, extract the target origin, rebuild the full asset URL, and
+    redirect through the proxy.
+    """
+    from urllib.parse import parse_qs, unquote
+
+    referer = request.headers.get("Referer", "")
+    # Our own static files must never be caught here
+    if asset_path.startswith("static/"):
+        return jsonify({"error": "Not found"}), 404
+
+    page_url = ""
+
+    # Case 1: referer is a /fetch?url= page
+    if "/fetch?url=" in referer:
+        try:
+            qs = parse_qs(urlparse(referer).query)
+            page_url = qs.get("url", [""])[0]
+        except Exception:
+            pass
+
+    # Case 2: referer is itself a proxied asset (JS that loaded another JS)
+    # e.g. Referer: https://ourserver/fetch?url=https%3A%2F%2Fgithub.com%2Fchunk-abc.js
+    # already handled by Case 1
+
+    if page_url:
+        parsed_page = urlparse(page_url)
+        target_origin = f"{parsed_page.scheme}://{parsed_page.netloc}"
+        target_url = target_origin + "/" + asset_path
+        if request.query_string:
+            target_url += "?" + request.query_string.decode("utf-8", errors="replace")
+
+        safe, _ = _is_safe_url(target_url)
+        if safe:
+            from flask import redirect
+            return redirect("/fetch?url=" + quote(target_url, safe=""), code=302)
+
+    return jsonify({"error": f"Not found: /{asset_path}"}), 404
 
 
 @app.route("/version")
