@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.4"
+VERSION = "1.1.5"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -47,24 +47,30 @@ def _get_session(sid: str) -> requests.Session:
         return _sessions[sid]
 
 def _record_cdn_origins(sid: str, html: str) -> None:
-    origins: set[str] = set()
-    for m in re.finditer(r'(?:src|href)=["\']((https?:)?//[^/"\'>\s]+)', html, re.IGNORECASE):
-        raw = m.group(1)
-        if raw.startswith("//"):
-            raw = "https:" + raw
+    """Store both origin AND full base path for every external script/link."""
+    entries: set[str] = set()
+    for m in re.finditer(r'(?:src|href)=["\'](https?://[^"\'\s>]+)', html, re.IGNORECASE):
+        url_str = m.group(1)
         try:
-            p = urlparse(raw)
-            if p.netloc:
-                origins.add(f"https://{p.netloc}")
+            p = urlparse(url_str)
+            if not p.netloc:
+                continue
+            origin = f"https://{p.netloc}"
+            entries.add(origin)  # bare origin
+            # Also store the directory path (e.g. https://githubassets.com/assets/)
+            path_dir = p.path.rsplit("/", 1)[0] + "/" if "/" in p.path else "/"
+            if path_dir != "/":
+                entries.add(origin + path_dir)
         except Exception:
             pass
-    if origins:
+    if entries:
         with _cdn_lock:
-            _cdn_origins.setdefault(sid, set()).update(origins)
+            _cdn_origins.setdefault(sid, set()).update(entries)
 
 def _get_cdn_origins(sid: str) -> list[str]:
     with _cdn_lock:
-        return list(_cdn_origins.get(sid, []))
+        # Return longer (more specific) paths first
+        return sorted(_cdn_origins.get(sid, []), key=len, reverse=True)
 
 # ── SSRF protection ───────────────────────────────────────────────────────────
 _BLOCKED_NETWORKS = [
@@ -158,6 +164,8 @@ def _rewrite_html(html: str, base_url: str, proxy_base: str) -> str:
 
     html = _SINGLE_URL_ATTRS.sub(replace_single, html)
     html = _SRCSET_ATTR.sub(replace_srcset, html)
+    # Force eager loading — lazy images never trigger in an iframe
+    html = re.sub(r'loading=["\']lazy["\']', 'loading="eager"', html, flags=re.IGNORECASE)
     return html
 
 # ── CSS rewriting ─────────────────────────────────────────────────────────────
@@ -286,10 +294,12 @@ def _do_proxy(url: str, sid: str, proxy_base: str) -> Response:
         return Response(resp.content, content_type=content_type, headers=out_headers)
 
 
-def _proxy_asset(url: str, sid: str) -> Response:
+def _proxy_asset(url: str, sid: str, referer: str = "") -> Response:
     """Stream a non-HTML asset (JS, CSS, image, video, font)."""
     sess    = _get_session(sid)
     headers = _fwd_request_headers(url)
+    if referer:
+        headers["Referer"] = referer
     body    = request.get_data() if request.method in ("POST", "PUT", "PATCH") else None
     try:
         r = sess.request(
@@ -375,87 +385,74 @@ def ai_search():
 
 @app.route("/ai/chat", methods=["POST"])
 def ai_chat():
-    body      = request.get_json(force=True, silent=True) or {}
-    messages  = body.get("messages", [])
-    page_url  = body.get("page_url", "")
+    body     = request.get_json(force=True, silent=True) or {}
+    messages = body.get("messages", [])
+    page_url = body.get("page_url", "")
     if not messages:
         return jsonify({"error": "No messages"}), 400
 
+    last_user = next((m["content"] for m in reversed(messages) if m["role"] == "user"), "")
+
+    # Decide if we need a web search based on keywords
+    search_keywords = ["search", "latest", "news", "current", "today", "recent",
+                       "price", "who is", "what is", "when", "2024", "2025", "2026"]
+    needs_search = any(k in last_user.lower() for k in search_keywords)
+
+    search_context = ""
+    search_query   = ""
+    if needs_search:
+        search_query = last_user[:200]
+        try:
+            r = requests.get("https://api.duckduckgo.com/",
+                params={"q": search_query, "format": "json", "no_html": "1", "skip_disambig": "1"},
+                timeout=8, verify=True, headers={"User-Agent": "remote-browser/1.0"})
+            data = r.json()
+            snippets = []
+            if data.get("AbstractText"):
+                snippets.append(f"[{data.get('Heading', search_query)}] {data['AbstractText']} ({data.get('AbstractURL', '')})")
+            for rel in data.get("RelatedTopics", [])[:5]:
+                if isinstance(rel, dict) and rel.get("Text"):
+                    snippets.append(f"- {rel['Text']} ({rel.get('FirstURL', '')})")
+            if snippets:
+                search_context = "\n\nWeb search results:\n" + "\n".join(snippets)
+        except Exception:
+            pass
+
     system = (
         "You are an intelligent browser assistant embedded in a server-side web proxy. "
-        f"The user is currently viewing: {page_url or 'the start page'}.\n"
-        "You have a web_search tool. Use it for current info or facts you're unsure about."
+        f"The user is viewing: {page_url or 'the start page'}. "
+        "Be concise and helpful. When citing sources use markdown links."
+        + search_context
     )
-    tools = [{"type": "function", "function": {
-        "name": "web_search",
-        "description": "Search the web for current information.",
-        "parameters": {"type": "object", "properties": {
-            "query": {"type": "string"}}, "required": ["query"]}}}]
 
     full_messages = [{"role": "system", "content": system}] + messages
 
     def generate():
+        if search_query and search_context:
+            yield f"data: {json.dumps({'type': 'search', 'query': search_query})}\n\n"
         try:
             stream = _nvidia_client.chat.completions.create(
-                model=AI_MODEL, messages=full_messages, tools=tools,
-                tool_choice="auto", temperature=0.7, top_p=1, max_tokens=4096, stream=True)
-            collected_calls: dict[int, dict] = {}
-            text_started = False
+                model=AI_MODEL,
+                messages=full_messages,
+                temperature=0.7,
+                top_p=1,
+                max_tokens=4096,
+                stream=True,
+            )
             for chunk in stream:
-                delta = chunk.choices[0].delta if chunk.choices else None
-                if not delta: continue
-                if delta.tool_calls:
-                    for tc in delta.tool_calls:
-                        i = tc.index
-                        if i not in collected_calls:
-                            collected_calls[i] = {"id": tc.id or "", "name": "", "args": ""}
-                        if tc.function:
-                            if tc.function.name: collected_calls[i]["name"] = tc.function.name
-                            if tc.function.arguments: collected_calls[i]["args"] += tc.function.arguments
-                if delta.content:
-                    text_started = True
-                    yield f"data: {json.dumps({'type':'token','content':delta.content})}\n\n"
-
-            if collected_calls and not text_started:
-                tool_results = []
-                for tc in collected_calls.values():
-                    if tc["name"] == "web_search":
-                        try:
-                            query = json.loads(tc["args"]).get("query","")
-                            yield f"data: {json.dumps({'type':'search','query':query})}\n\n"
-                            r = requests.get("https://api.duckduckgo.com/",
-                                params={"q":query,"format":"json","no_html":"1","skip_disambig":"1"},
-                                timeout=10, verify=True, headers={"User-Agent":"remote-browser/1.0"})
-                            data = r.json()
-                            snippets = []
-                            if data.get("AbstractText"):
-                                snippets.append(f"[{data.get('Heading',query)}] {data['AbstractText']} ({data.get('AbstractURL','')})")
-                            for rel in data.get("RelatedTopics",[])[:5]:
-                                if isinstance(rel,dict) and rel.get("Text"):
-                                    snippets.append(f"- {rel['Text']} ({rel.get('FirstURL','')})")
-                            result_text = "\n".join(snippets) or "No results."
-                        except Exception as e:
-                            result_text = f"Search failed: {e}"
-                        tool_results.append({"role":"tool","tool_call_id":tc["id"],"content":result_text})
-
-                if tool_results:
-                    msgs2 = full_messages + [{"role":"assistant","tool_calls":[
-                        {"id":tc["id"],"type":"function","function":{"name":tc["name"],"arguments":tc["args"]}}
-                        for tc in collected_calls.values()]}] + tool_results
-                    s2 = _nvidia_client.chat.completions.create(
-                        model=AI_MODEL, messages=msgs2, temperature=0.7, top_p=1, max_tokens=4096, stream=True)
-                    for chunk in s2:
-                        delta = chunk.choices[0].delta if chunk.choices else None
-                        if delta and delta.content:
-                            yield f"data: {json.dumps({'type':'token','content':delta.content})}\n\n"
-
-            yield f"data: {json.dumps({'type':'done'})}\n\n"
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    yield f"data: {json.dumps({'type': 'token', 'content': delta.content})}\n\n"
+            yield f"data: {json.dumps({'type': 'done'})}\n\n"
         except Exception as e:
-            yield f"data: {json.dumps({'type':'error','content':str(e)})}\n\n"
+            yield f"data: {json.dumps({'type': 'error', 'content': str(e)})}\n\n"
 
     return Response(stream_with_context(generate()),
         content_type="text/event-stream",
-        headers={"Cache-Control":"no-cache","X-Accel-Buffering":"no"})
+        headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
+
 
 @app.route("/<path:asset_path>", methods=["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"])
 def catch_all(asset_path):
@@ -483,20 +480,22 @@ def catch_all(asset_path):
     primary_origin = f"{parsed_page.scheme}://{parsed_page.netloc}"
     qs_str = ("?" + request.query_string.decode("utf-8", errors="replace")) if request.query_string else ""
 
-    # Build candidate origins: primary first, then known CDN origins
-    candidates = [primary_origin] + [
-        o for o in _get_cdn_origins(sid) if o != primary_origin
-    ]
+    # Build candidates: primary origin + known CDN base paths (sorted longest first)
+    cdn = _get_cdn_origins(sid)
+    candidates = [primary_origin] + [c for c in cdn if c != primary_origin]
 
-    for origin in candidates:
-        target_url = origin + "/" + asset_path + qs_str
+    for base in candidates:
+        # base can be "https://origin" or "https://origin/path/"
+        sep = "" if base.endswith("/") else "/"
+        target_url = base + sep + asset_path + qs_str
         safe, _ = _is_safe_url(target_url)
         if not safe:
             continue
         try:
-            result = _proxy_asset(target_url, sid)
-            # _proxy_asset returns a Response; check if it's a 404
-            if hasattr(result, 'status_code') and result.status_code == 404:
+            # Pass page_url as Referer so CDN servers accept the request
+            result = _proxy_asset(target_url, sid, referer=page_url)
+            status = getattr(result, 'status_code', 200)
+            if status in (404, 403):
                 continue
             return result
         except Exception:
