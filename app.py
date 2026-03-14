@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.0.9"
+VERSION = "1.1.0"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -211,7 +211,7 @@ def index():
     return resp
 
 
-@app.route("/fetch")
+@app.route("/fetch", methods=["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"])
 def fetch_route():
     url = request.args.get("url")
     if not url:
@@ -236,7 +236,18 @@ def fetch_route():
     fwd_headers["Host"] = urlparse(url).netloc
 
     try:
-        resp = sess.get(url, timeout=30, verify=True, headers=fwd_headers, allow_redirects=True)
+        method = request.method.upper()
+        # Forward request body for POST/PUT/PATCH
+        req_body = request.get_data() if method in ("POST", "PUT", "PATCH") else None
+        resp = sess.request(
+            method=method,
+            url=url,
+            timeout=30,
+            verify=True,
+            headers=fwd_headers,
+            data=req_body,
+            allow_redirects=True,
+        )
         content_type = resp.headers.get("Content-Type", "text/html")
 
         if "text/html" in content_type.lower():
@@ -467,7 +478,7 @@ def ai_chat():
     )
 
 
-@app.route("/<path:asset_path>")
+@app.route("/<path:asset_path>", methods=["GET","POST","PUT","PATCH","DELETE","HEAD","OPTIONS"])
 def catch_all(asset_path):
     """
     Catch assets that land on our server instead of going through /fetch?url=.
