@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.6"
+VERSION = "1.1.7"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -344,6 +344,23 @@ def index():
 def fetch_route():
     url = request.args.get("url", "").strip()
     if not url:
+        # Browser navigated to /fetch without a url param — this happens when
+        # a page's JS sets location to a relative URL that resolves to our /fetch.
+        # Return a small HTML page that tells the iframe to reload via the proxy.
+        referer = request.headers.get("Referer", "")
+        if "/fetch?url=" in referer:
+            try:
+                from urllib.parse import parse_qs as _pqs
+                page_url = _pqs(urlparse(referer).query).get("url", [""])[0]
+                if page_url:
+                    pb = _proxy_base()
+                    # Redirect back to the same page
+                    return Response(
+                        f'<html><head><meta http-equiv="refresh" content="0;url={pb}/fetch?url={quote(page_url,safe="")}"></head></html>',
+                        content_type="text/html"
+                    )
+            except Exception:
+                pass
         return jsonify({"error": "Missing url parameter"}), 400
     if not url.startswith(("http://", "https://")):
         url = "https://" + url
@@ -460,26 +477,18 @@ def catch_all(asset_path):
     if asset_path.startswith(("static/", "fetch", "ai/", "version")):
         return jsonify({"error": "Not found"}), 404
 
-    # If path looks like a bare hostname or URL (e.g. "youtube.com" or "www.google.com/search?q=...")
-    # treat it as a navigation — proxy it directly as a /fetch request
-    looks_like_nav = (
-        "." in asset_path.split("/")[0]          # has a TLD
-        and not asset_path.startswith("_")       # not a framework chunk
-        and not asset_path.endswith((".js", ".css", ".png", ".jpg", ".gif",
-                                      ".svg", ".woff", ".woff2", ".ttf",
-                                      ".ico", ".webp", ".mp4", ".webm", ".json"))
-    )
-    if looks_like_nav:
+    # If path looks like a bare hostname (e.g. "youtube.com"), treat as navigation
+    first_segment = asset_path.split("/")[0]
+    if "." in first_segment and not first_segment.endswith((".js",".css",".png",".jpg",
+            ".gif",".svg",".woff",".woff2",".ttf",".ico",".webp",".mp4",".webm",".json")):
         target = "https://" + asset_path
         if request.query_string:
             target += "?" + request.query_string.decode("utf-8", errors="replace")
         safe, reason = _is_safe_url(target)
         if not safe:
             return jsonify({"error": f"Blocked: {reason}"}), 403
-        proxy_base_nav = _proxy_base()
-        sid_nav = request.cookies.get(SESSION_COOKIE, "anonymous")
         try:
-            return _do_proxy(target, sid_nav, proxy_base_nav)
+            return _do_proxy(target, request.cookies.get(SESSION_COOKIE,"anonymous"), _proxy_base())
         except Exception as e:
             return jsonify({"error": str(e)}), 500
 
@@ -498,6 +507,9 @@ def catch_all(asset_path):
 
     if not page_url:
         return jsonify({"error": "Not found"}), 404
+
+    # For ANY path with a valid referer (including API endpoints like /youtubei/v1/...)
+    # try to proxy against the page origin and known CDN origins
 
     parsed_page   = urlparse(page_url)
     primary_origin = f"{parsed_page.scheme}://{parsed_page.netloc}"
