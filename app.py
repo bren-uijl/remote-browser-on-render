@@ -11,7 +11,7 @@ import requests
 from flask import Flask, request, render_template, jsonify, Response, stream_with_context
 from openai import OpenAI
 
-VERSION = "1.1.5"
+VERSION = "1.1.6"
 app = Flask(__name__)
 app.secret_key = os.environ.get("SECRET_KEY", secrets.token_hex(32))
 
@@ -460,6 +460,29 @@ def catch_all(asset_path):
     if asset_path.startswith(("static/", "fetch", "ai/", "version")):
         return jsonify({"error": "Not found"}), 404
 
+    # If path looks like a bare hostname or URL (e.g. "youtube.com" or "www.google.com/search?q=...")
+    # treat it as a navigation — proxy it directly as a /fetch request
+    looks_like_nav = (
+        "." in asset_path.split("/")[0]          # has a TLD
+        and not asset_path.startswith("_")       # not a framework chunk
+        and not asset_path.endswith((".js", ".css", ".png", ".jpg", ".gif",
+                                      ".svg", ".woff", ".woff2", ".ttf",
+                                      ".ico", ".webp", ".mp4", ".webm", ".json"))
+    )
+    if looks_like_nav:
+        target = "https://" + asset_path
+        if request.query_string:
+            target += "?" + request.query_string.decode("utf-8", errors="replace")
+        safe, reason = _is_safe_url(target)
+        if not safe:
+            return jsonify({"error": f"Blocked: {reason}"}), 403
+        proxy_base_nav = _proxy_base()
+        sid_nav = request.cookies.get(SESSION_COOKIE, "anonymous")
+        try:
+            return _do_proxy(target, sid_nav, proxy_base_nav)
+        except Exception as e:
+            return jsonify({"error": str(e)}), 500
+
     sid        = request.cookies.get(SESSION_COOKIE, "anonymous")
     proxy_base = _proxy_base()
 
@@ -502,6 +525,11 @@ def catch_all(asset_path):
             continue
 
     return jsonify({"error": f"Not found: /{asset_path}"}), 404
+
+@app.route("/ping")
+def ping():
+    """Keep-alive endpoint — called every 4 minutes by the UI to prevent Render spindown."""
+    return ("", 204)
 
 @app.route("/version")
 def version_route():

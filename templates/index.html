@@ -19,26 +19,24 @@
     }
     html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:13px;overflow:hidden}
 
-    /* ── layout ── */
-    #root{display:flex;height:100vh;flex-direction:column}
+    #root{display:flex;flex-direction:column;height:100vh}
     #browser-window{display:flex;flex-direction:column;flex:1;overflow:hidden;border:1px solid var(--border)}
-    #main-row{display:flex;flex:1;overflow:hidden}
-    #tab-content{flex:1;position:relative;overflow:hidden}
+    #main-row{display:flex;flex:1;overflow:hidden;min-height:0}
+    #tab-content{flex:1;position:relative;overflow:hidden;min-width:0}
 
-    /* ── title bar ── */
+    /* title bar */
     #title-bar{display:flex;align-items:center;gap:8px;padding:0 12px;height:34px;background:var(--bg);border-bottom:1px solid var(--border);user-select:none;flex-shrink:0}
     .traffic-lights{display:flex;gap:6px;align-items:center}
-    .dot{width:12px;height:12px;border-radius:50%;cursor:pointer;transition:filter .15s}
-    .dot:hover{filter:brightness(1.4)}
+    .dot{width:12px;height:12px;border-radius:50%;cursor:pointer}
     .dot-close{background:#e05c5c}.dot-min{background:#e8a030}.dot-max{background:#4caf7d}
-    #title-text{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em}
-    #version-badge{font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--border);padding:2px 7px;border-radius:99px}
+    #title-text{flex:1;text-align:center;font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #version-badge{font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--border);padding:2px 7px;border-radius:99px;flex-shrink:0}
 
-    /* ── tab bar ── */
+    /* tab bar */
     #tab-bar{display:flex;align-items:stretch;background:var(--tab-bg);border-bottom:1px solid var(--border);padding:0 6px;gap:2px;min-height:34px;overflow-x:auto;overflow-y:hidden;flex-shrink:0}
     #tab-bar::-webkit-scrollbar{height:2px}
     #tab-bar::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:99px}
-    .tab{display:flex;align-items:center;gap:6px;padding:0 10px 0 11px;min-width:110px;max-width:190px;height:34px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden;transition:background .12s,color .12s,border-color .12s;flex-shrink:0}
+    .tab{display:flex;align-items:center;gap:6px;padding:0 10px 0 11px;min-width:110px;max-width:190px;height:34px;background:transparent;border:none;border-bottom:2px solid transparent;color:var(--dim);font-family:var(--sans);font-size:12px;cursor:pointer;white-space:nowrap;overflow:hidden;transition:background .1s,color .1s,border-color .1s;flex-shrink:0}
     .tab:hover{background:var(--surface);color:var(--text)}
     .tab.active{background:var(--tab-act);color:var(--text);border-bottom-color:var(--accent)}
     .tab-favicon{width:13px;height:13px;flex-shrink:0;opacity:.7}
@@ -50,16 +48,16 @@
     #new-tab-btn{display:flex;align-items:center;justify-content:center;width:30px;height:34px;background:none;border:none;color:var(--dim);font-size:18px;cursor:pointer;flex-shrink:0;border-radius:var(--radius);transition:background .1s,color .1s}
     #new-tab-btn:hover{background:var(--surface);color:var(--text)}
 
-    /* ── toolbar ── */
+    /* toolbar */
     #toolbar{display:flex;align-items:center;gap:5px;padding:5px 10px;background:var(--toolbar);border-bottom:1px solid var(--border);flex-shrink:0}
     .nav-btn{width:27px;height:27px;background:none;border:none;border-radius:var(--radius);color:var(--dim);font-size:14px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background .1s,color .1s;flex-shrink:0}
     .nav-btn:hover:not(:disabled){background:var(--border);color:var(--text)}
     .nav-btn:disabled{opacity:.25;cursor:default}
-    #address-bar-wrap{flex:1;display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0 10px;gap:7px;height:27px;transition:border-color .15s}
+    #address-bar-wrap{flex:1;display:flex;align-items:center;background:var(--bg);border:1px solid var(--border);border-radius:var(--radius);padding:0 10px;gap:7px;height:27px;transition:border-color .15s;min-width:0}
     #address-bar-wrap:focus-within{border-color:var(--accent)}
     .scheme-badge{font-family:var(--mono);font-size:11px;color:var(--green);flex-shrink:0}
     .scheme-badge.insecure{color:var(--dim)}
-    #url-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px}
+    #url-input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:12px;min-width:0;overflow:hidden;text-overflow:ellipsis}
     #url-input::placeholder{color:var(--dim)}
     #go-btn{height:27px;padding:0 13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:var(--sans);font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;transition:background .15s}
     #go-btn:hover{background:var(--accent-hi)}
@@ -68,69 +66,70 @@
     #ai-toggle-btn:hover,#ai-toggle-btn.active{background:var(--surface);border-color:var(--purple);color:var(--purple)}
     #ai-toggle-btn .ai-dot{width:7px;height:7px;border-radius:50%;background:var(--purple);flex-shrink:0}
 
-    /* ── progress bar ── */
+    /* progress bar */
     #progress-bar{height:2px;background:var(--accent);width:0%;transition:width .3s ease;flex-shrink:0}
     #progress-bar.done{opacity:0;transition:opacity .4s .2s}
 
-    /* ── tab panels ── */
+    /* tab panels */
     .tab-panel{position:absolute;inset:0;display:none}
     .tab-panel.active{display:flex;flex-direction:column}
     .browser-frame{flex:1;width:100%;border:none;background:#fff}
 
-    /* ── start page ── */
-    .start-page{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:24px;background:var(--bg);padding:40px;overflow-y:auto}
+    /* start page — full centered */
+    .start-page{
+      flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+      gap:24px;background:var(--bg);padding:40px;overflow-y:auto;
+      width:100%;min-height:0;
+    }
     .start-logo{font-family:var(--mono);font-size:26px;font-weight:500;letter-spacing:-.02em}
     .start-logo span{color:var(--accent)}
     .start-sub{font-size:11px;color:var(--dim);font-family:var(--mono);letter-spacing:.05em}
-    .start-search{display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:8px;width:100%;max-width:500px;overflow:hidden;transition:border-color .15s}
+    .start-search{
+      display:flex;align-items:center;background:var(--surface);border:1px solid var(--border);
+      border-radius:8px;width:100%;max-width:500px;overflow:hidden;transition:border-color .15s;
+    }
     .start-search:focus-within{border-color:var(--accent)}
     .start-search input{flex:1;background:none;border:none;outline:none;color:var(--text);font-family:var(--mono);font-size:13px;padding:11px 15px}
     .start-search input::placeholder{color:var(--dim)}
-    .start-search button{padding:0 18px;height:41px;background:var(--accent);color:#fff;border:none;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;transition:background .15s}
+    .start-search button{padding:0 18px;height:41px;background:var(--accent);color:#fff;border:none;font-family:var(--sans);font-weight:600;font-size:13px;cursor:pointer;flex-shrink:0;transition:background .15s}
     .start-search button:hover{background:var(--accent-hi)}
     .quicklinks{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;max-width:500px}
     .quicklink{display:flex;align-items:center;gap:6px;padding:6px 12px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--dim);font-size:12px;cursor:pointer;transition:border-color .15s,color .15s;user-select:none}
     .quicklink:hover{border-color:var(--accent);color:var(--text)}
 
-    /* ── error page ── */
+    /* error page */
     .error-page{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:var(--bg);padding:40px}
     .error-code{font-family:var(--mono);font-size:56px;color:var(--border-hi);line-height:1}
     .error-msg{font-size:13px;color:var(--dim);text-align:center;max-width:380px;line-height:1.6}
-    .error-retry{padding:7px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-family:var(--sans);font-size:12px;cursor:pointer;transition:border-color .15s}
+    .error-retry{padding:7px 18px;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);color:var(--text);font-size:12px;cursor:pointer;transition:border-color .15s}
     .error-retry:hover{border-color:var(--accent)}
 
-    /* ── AI sidebar ── */
-    #ai-sidebar{width:var(--ai-w);min-width:var(--ai-w);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--surface);transition:margin-right .2s ease;overflow:hidden}
-    #ai-sidebar.collapsed{margin-right:calc(-1 * var(--ai-w));min-width:0;width:0;border-left:none}
+    /* AI sidebar */
+    #ai-sidebar{width:var(--ai-w);min-width:var(--ai-w);display:flex;flex-direction:column;border-left:1px solid var(--border);background:var(--surface);overflow:hidden;flex-shrink:0;transition:width .2s,min-width .2s}
+    #ai-sidebar.collapsed{width:0;min-width:0;border-left:none}
     #ai-header{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);flex-shrink:0}
     .ai-logo{font-family:var(--mono);font-size:12px;color:var(--purple);font-weight:500;flex:1}
     .ai-logo span{color:var(--dim)}
     #ai-model-badge{font-family:var(--mono);font-size:10px;color:var(--dim);background:var(--bg);border:1px solid var(--border);padding:2px 7px;border-radius:99px}
     #ai-clear-btn{width:24px;height:24px;background:none;border:none;color:var(--dim);font-size:14px;cursor:pointer;border-radius:var(--radius);display:flex;align-items:center;justify-content:center;transition:background .1s,color .1s}
     #ai-clear-btn:hover{background:var(--border);color:var(--text)}
-
-    #ai-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px}
+    #ai-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;min-height:0}
     #ai-messages::-webkit-scrollbar{width:4px}
     #ai-messages::-webkit-scrollbar-thumb{background:var(--border-hi);border-radius:99px}
-
-    .ai-msg{display:flex;flex-direction:column;gap:4px;max-width:100%}
+    .ai-msg{display:flex;flex-direction:column;gap:4px}
     .ai-msg.user{align-items:flex-end}
     .ai-msg.assistant{align-items:flex-start}
     .ai-bubble{padding:8px 11px;border-radius:10px;font-size:12px;line-height:1.55;white-space:pre-wrap;word-break:break-word;max-width:88%}
     .ai-msg.user .ai-bubble{background:var(--accent);color:#fff;border-bottom-right-radius:3px}
     .ai-msg.assistant .ai-bubble{background:var(--bg);border:1px solid var(--border);color:var(--text);border-bottom-left-radius:3px}
     .ai-msg.assistant .ai-bubble a{color:var(--accent);text-decoration:none}
-    .ai-msg.assistant .ai-bubble a:hover{text-decoration:underline}
     .ai-msg.system .ai-bubble{background:transparent;border:none;color:var(--dim);font-size:11px;font-family:var(--mono);align-self:center;text-align:center;max-width:100%}
-
     .ai-search-indicator{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--yellow);font-family:var(--mono);padding:4px 0}
-    .ai-search-indicator::before{content:'↗';font-size:12px}
     .ai-thinking{display:flex;gap:4px;align-items:center;padding:10px 12px}
     .ai-thinking span{width:5px;height:5px;border-radius:50%;background:var(--dim);animation:pulse 1.2s ease-in-out infinite}
     .ai-thinking span:nth-child(2){animation-delay:.2s}
     .ai-thinking span:nth-child(3){animation-delay:.4s}
     @keyframes pulse{0%,80%,100%{opacity:.2;transform:scale(.8)}40%{opacity:1;transform:scale(1)}}
-
     #ai-input-area{padding:10px 12px;border-top:1px solid var(--border);flex-shrink:0;display:flex;flex-direction:column;gap:7px}
     #ai-context-row{display:flex;align-items:center;gap:6px;font-size:11px;color:var(--dim);font-family:var(--mono)}
     #ai-page-ctx{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
@@ -145,90 +144,69 @@
     .ai-chip{padding:4px 9px;background:var(--bg);border:1px solid var(--border);border-radius:99px;color:var(--dim);font-size:11px;cursor:pointer;transition:border-color .12s,color .12s;white-space:nowrap}
     .ai-chip:hover{border-color:var(--purple);color:var(--text)}
 
-    /* ── status bar ── */
+    /* status bar */
     #status-bar{display:flex;align-items:center;justify-content:space-between;padding:0 10px;height:20px;background:var(--bg);border-top:1px solid var(--border);flex-shrink:0}
-    #status-text{font-family:var(--mono);font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:60%}
-    #status-right{font-family:var(--mono);font-size:10px;color:var(--dim)}
+    #status-text{font-family:var(--mono);font-size:10px;color:var(--dim);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:70%}
+    #status-right{font-family:var(--mono);font-size:10px;color:var(--dim);flex-shrink:0}
   </style>
 </head>
 <body>
 <div id="root">
 <div id="browser-window">
-
   <div id="title-bar">
     <div class="traffic-lights">
-      <div class="dot dot-close"></div>
-      <div class="dot dot-min"></div>
-      <div class="dot dot-max"></div>
+      <div class="dot dot-close"></div><div class="dot dot-min"></div><div class="dot dot-max"></div>
     </div>
     <div id="title-text">remote-browser</div>
     <div id="version-badge">v{{ version }}</div>
   </div>
-
   <div id="tab-bar">
     <button id="new-tab-btn" title="New tab">+</button>
   </div>
-
   <div id="toolbar">
-    <button class="nav-btn" id="btn-back"    title="Back"    disabled>&#8592;</button>
-    <button class="nav-btn" id="btn-forward" title="Forward" disabled>&#8594;</button>
-    <button class="nav-btn" id="btn-reload"  title="Reload">&#8635;</button>
-    <button class="nav-btn" id="btn-home"    title="New tab">&#8962;</button>
+    <button class="nav-btn" id="btn-back" disabled>&#8592;</button>
+    <button class="nav-btn" id="btn-forward" disabled>&#8594;</button>
+    <button class="nav-btn" id="btn-reload">&#8635;</button>
+    <button class="nav-btn" id="btn-home">&#8962;</button>
     <div id="address-bar-wrap">
       <span class="scheme-badge" id="scheme-badge">https</span>
       <input id="url-input" type="text" placeholder="Enter URL or search…" autocomplete="off" spellcheck="false"/>
     </div>
     <button id="go-btn">Go</button>
     <div class="toolbar-sep"></div>
-    <button id="ai-toggle-btn" title="Toggle AI assistant">
-      <span class="ai-dot"></span>
-      AI
-    </button>
+    <button id="ai-toggle-btn"><span class="ai-dot"></span>AI</button>
   </div>
-
   <div id="progress-bar"></div>
-
   <div id="main-row">
     <div id="tab-content"></div>
-
-    <!-- AI sidebar -->
     <div id="ai-sidebar" class="collapsed">
       <div id="ai-header">
         <div class="ai-logo">remote<span>://</span>ai</div>
         <div id="ai-model-badge">gpt-oss-120b</div>
-        <button id="ai-clear-btn" title="Clear conversation">&#10005;</button>
+        <button id="ai-clear-btn">&#10005;</button>
       </div>
-
       <div id="ai-messages">
-        <div class="ai-msg system">
-          <div class="ai-bubble">GPT OSS 120B · web search enabled</div>
-        </div>
+        <div class="ai-msg system"><div class="ai-bubble">GPT OSS 120B · web search enabled</div></div>
       </div>
-
       <div id="ai-input-area">
         <div class="ai-suggestions" id="ai-chips">
-          <div class="ai-chip" data-q="Summarise this page">Summarise page</div>
-          <div class="ai-chip" data-q="What are the main topics on this page?">Main topics</div>
-          <div class="ai-chip" data-q="Find related articles about this topic">Related articles</div>
+          <div class="ai-chip" data-q="Summarise this page">Summarise</div>
+          <div class="ai-chip" data-q="What are the main topics on this page?">Topics</div>
           <div class="ai-chip" data-q="Search the web for the latest news about this topic">Latest news</div>
+          <div class="ai-chip" data-q="Find related articles">Related</div>
         </div>
-        <div id="ai-context-row">
-          <span>📄</span>
-          <span id="ai-page-ctx">start page</span>
-        </div>
+        <div id="ai-context-row"><span>📄</span><span id="ai-page-ctx">start page</span></div>
         <div id="ai-input-row">
-          <textarea id="ai-input" rows="1" placeholder="Ask anything about this page…"></textarea>
-          <button id="ai-send-btn" title="Send">&#9650;</button>
+          <textarea id="ai-input" rows="1" placeholder="Ask anything…"></textarea>
+          <button id="ai-send-btn">&#9650;</button>
         </div>
       </div>
     </div>
   </div>
-
   <div id="status-bar">
     <span id="status-text">Ready</span>
     <span id="status-right">remote-browser-on-render</span>
   </div>
-
 </div>
 </div>
 
@@ -236,308 +214,283 @@
 (function(){
 'use strict';
 
-// ── State ────────────────────────────────────────────────────────────────────
+// ── State ─────────────────────────────────────────────────────────────────
 let tabIdCounter = 0;
 const tabs = {};
 let activeTabId = null;
-let aiMessages = [];   // {role, content}
-let aiStreaming = false;
+let aiMessages  = [];
+let aiStreaming  = false;
 
-// ── DOM ──────────────────────────────────────────────────────────────────────
-const tabBar      = document.getElementById('tab-bar');
-const newTabBtn   = document.getElementById('new-tab-btn');
-const tabContent  = document.getElementById('tab-content');
-const urlInput    = document.getElementById('url-input');
-const schemeBadge = document.getElementById('scheme-badge');
-const goBtn       = document.getElementById('go-btn');
-const btnBack     = document.getElementById('btn-back');
-const btnFwd      = document.getElementById('btn-forward');
-const btnReload   = document.getElementById('btn-reload');
-const btnHome     = document.getElementById('btn-home');
-const progressBar = document.getElementById('progress-bar');
-const statusText  = document.getElementById('status-text');
-const titleText   = document.getElementById('title-text');
-const aiToggleBtn = document.getElementById('ai-toggle-btn');
-const aiSidebar   = document.getElementById('ai-sidebar');
-const aiMsgsEl    = document.getElementById('ai-messages');
-const aiInput     = document.getElementById('ai-input');
-const aiSendBtn   = document.getElementById('ai-send-btn');
-const aiPageCtx   = document.getElementById('ai-page-ctx');
-const aiClearBtn  = document.getElementById('ai-clear-btn');
+// ── DOM ───────────────────────────────────────────────────────────────────
+const tabBar     = document.getElementById('tab-bar');
+const newTabBtn  = document.getElementById('new-tab-btn');
+const tabContent = document.getElementById('tab-content');
+const urlInput   = document.getElementById('url-input');
+const schemeBadge= document.getElementById('scheme-badge');
+const goBtn      = document.getElementById('go-btn');
+const btnBack    = document.getElementById('btn-back');
+const btnFwd     = document.getElementById('btn-forward');
+const btnReload  = document.getElementById('btn-reload');
+const btnHome    = document.getElementById('btn-home');
+const progressBar= document.getElementById('progress-bar');
+const statusText = document.getElementById('status-text');
+const titleText  = document.getElementById('title-text');
+const aiToggleBtn= document.getElementById('ai-toggle-btn');
+const aiSidebar  = document.getElementById('ai-sidebar');
+const aiMsgsEl   = document.getElementById('ai-messages');
+const aiInput    = document.getElementById('ai-input');
+const aiSendBtn  = document.getElementById('ai-send-btn');
+const aiPageCtx  = document.getElementById('ai-page-ctx');
+const aiClearBtn = document.getElementById('ai-clear-btn');
 
-// ── AI sidebar toggle ────────────────────────────────────────────────────────
-function setAiOpen(open){
-  aiSidebar.classList.toggle('collapsed', !open);
-  aiToggleBtn.classList.toggle('active', open);
-  if(open) aiInput.focus();
-}
-aiToggleBtn.addEventListener('click', () => setAiOpen(aiSidebar.classList.contains('collapsed')));
+// ── Keep-alive: ping every 4 minutes to prevent Render spindown ───────────
+setInterval(() => fetch('/ping').catch(()=>{}), 4 * 60 * 1000);
+
+// ── AI sidebar ────────────────────────────────────────────────────────────
+aiToggleBtn.addEventListener('click', () => {
+  const open = aiSidebar.classList.toggle('collapsed');
+  aiToggleBtn.classList.toggle('active', !open);
+  if (!open) aiInput.focus();
+});
 aiClearBtn.addEventListener('click', () => {
   aiMessages = [];
   aiMsgsEl.innerHTML = '<div class="ai-msg system"><div class="ai-bubble">GPT OSS 120B · web search enabled</div></div>';
 });
-
-// ── AI chip quick-prompts ────────────────────────────────────────────────────
 document.getElementById('ai-chips').addEventListener('click', e => {
   const chip = e.target.closest('.ai-chip');
-  if(chip){ aiInput.value = chip.dataset.q; sendAiMessage(); }
+  if (chip) { aiInput.value = chip.dataset.q; sendAiMessage(); }
 });
-
-// ── AI input auto-resize ─────────────────────────────────────────────────────
 aiInput.addEventListener('input', () => {
   aiInput.style.height = 'auto';
   aiInput.style.height = Math.min(aiInput.scrollHeight, 100) + 'px';
 });
-aiInput.addEventListener('keydown', e => {
-  if(e.key === 'Enter' && !e.shiftKey){ e.preventDefault(); sendAiMessage(); }
-});
+aiInput.addEventListener('keydown', e => { if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAiMessage();} });
 aiSendBtn.addEventListener('click', sendAiMessage);
 
-// ── markdown-lite renderer ────────────────────────────────────────────────────
-function renderMd(text){
-  return text
-    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
-    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>')
-    .replace(/\*(.+?)\*/g,'<em>$1</em>')
+function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function renderMd(t){
+  return t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/\*\*(.+?)\*\*/g,'<strong>$1</strong>').replace(/\*(.+?)\*/g,'<em>$1</em>')
     .replace(/`(.+?)`/g,'<code>$1</code>')
-    .replace(/\[(.*?)\]\((https?:\/\/[^\)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
-    .replace(/^#{1,3}\s+(.+)$/gm,'<strong>$1</strong>')
-    .replace(/^[-*]\s+(.+)$/gm,'• $1')
+    .replace(/\[(.*?)\]\((https?:\/\/[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>')
+    .replace(/^#{1,3}\s+(.+)$/gm,'<strong>$1</strong>').replace(/^[-*]\s+(.+)$/gm,'• $1')
     .replace(/\n/g,'<br>');
 }
-
-function appendAiMsg(role, content, streaming){
+function appendMsg(role, content, streaming){
   const div = document.createElement('div');
   div.className = `ai-msg ${role}`;
-  const bubble = document.createElement('div');
-  bubble.className = 'ai-bubble';
-  if(streaming) bubble.innerHTML = '▌';
-  else bubble.innerHTML = role === 'assistant' ? renderMd(content) : escHtml(content);
-  div.appendChild(bubble);
+  const b = document.createElement('div');
+  b.className = 'ai-bubble';
+  b.innerHTML = streaming ? '▌' : (role==='assistant' ? renderMd(content) : escHtml(content));
+  div.appendChild(b);
   aiMsgsEl.appendChild(div);
   aiMsgsEl.scrollTop = aiMsgsEl.scrollHeight;
-  return bubble;
+  return b;
 }
-
 function appendThinking(){
-  const div = document.createElement('div');
-  div.className = 'ai-msg assistant';
-  div.innerHTML = '<div class="ai-thinking"><span></span><span></span><span></span></div>';
-  aiMsgsEl.appendChild(div);
+  const d = document.createElement('div');
+  d.className = 'ai-msg assistant';
+  d.innerHTML = '<div class="ai-thinking"><span></span><span></span><span></span></div>';
+  aiMsgsEl.appendChild(d);
   aiMsgsEl.scrollTop = aiMsgsEl.scrollHeight;
-  return div;
+  return d;
 }
-
-function appendSearchIndicator(query){
-  const div = document.createElement('div');
-  div.className = 'ai-msg system';
-  div.innerHTML = `<div class="ai-search-indicator">Searching: ${escHtml(query)}</div>`;
-  aiMsgsEl.appendChild(div);
-  aiMsgsEl.scrollTop = aiMsgsEl.scrollHeight;
-  return div;
-}
-
-function escHtml(s){ return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
 
 async function sendAiMessage(){
   const text = aiInput.value.trim();
   if(!text || aiStreaming) return;
-  aiInput.value = '';
-  aiInput.style.height = 'auto';
-
-  appendAiMsg('user', text);
-  aiMessages.push({ role: 'user', content: text });
-
+  aiInput.value = ''; aiInput.style.height = 'auto';
+  appendMsg('user', text);
+  aiMessages.push({role:'user', content:text});
   const thinking = appendThinking();
-  aiStreaming = true;
-  aiSendBtn.disabled = true;
-
+  aiStreaming = true; aiSendBtn.disabled = true;
   const currentUrl = tabs[activeTabId]?.url || '';
   aiPageCtx.textContent = currentUrl || 'start page';
-
-  let assistantText = '';
-  let bubble = null;
-
+  let assistantText = '', bubble = null;
   try {
     const resp = await fetch('/ai/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ messages: aiMessages, page_url: currentUrl }),
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({messages:aiMessages, page_url:currentUrl})
     });
-
     const reader = resp.body.getReader();
-    const dec = new TextDecoder();
+    const dec    = new TextDecoder();
     let buf = '';
-
     while(true){
-      const { done, value } = await reader.read();
+      const {done, value} = await reader.read();
       if(done) break;
-      buf += dec.decode(value, { stream: true });
-      const lines = buf.split('\n');
-      buf = lines.pop();
+      buf += dec.decode(value, {stream:true});
+      const lines = buf.split('\n'); buf = lines.pop();
       for(const line of lines){
         if(!line.startsWith('data: ')) continue;
-        let ev;
-        try { ev = JSON.parse(line.slice(6)); } catch{ continue; }
-
-        if(ev.type === 'token'){
-          if(!bubble){
-            thinking.remove();
-            bubble = appendAiMsg('assistant', '', true);
-            bubble._raw = '';
-          }
-          bubble._raw += ev.content;
-          assistantText += ev.content;
+        let ev; try{ ev = JSON.parse(line.slice(6)); }catch{ continue; }
+        if(ev.type==='token'){
+          if(!bubble){ thinking.remove(); bubble = appendMsg('assistant','',true); bubble._raw=''; }
+          bubble._raw += ev.content; assistantText += ev.content;
           bubble.innerHTML = renderMd(bubble._raw) + ' ▌';
           aiMsgsEl.scrollTop = aiMsgsEl.scrollHeight;
-        } else if(ev.type === 'search'){
-          if(thinking.parentNode) thinking.remove();
-          appendSearchIndicator(ev.query);
-          const newThink = appendThinking();
-          thinking._replaced = newThink;
-        } else if(ev.type === 'done'){
-          if(bubble){ bubble.innerHTML = renderMd(bubble._raw); }
+        } else if(ev.type==='search'){
+          const si = document.createElement('div');
+          si.className = 'ai-msg system';
+          si.innerHTML = `<div class="ai-search-indicator">↗ Searching: ${escHtml(ev.query)}</div>`;
+          aiMsgsEl.insertBefore(si, thinking);
+        } else if(ev.type==='done'){
+          if(bubble) bubble.innerHTML = renderMd(bubble._raw);
           else if(thinking.parentNode) thinking.remove();
-        } else if(ev.type === 'error'){
+        } else if(ev.type==='error'){
           if(thinking.parentNode) thinking.remove();
-          appendAiMsg('system', '⚠ ' + ev.content);
+          appendMsg('system','⚠ '+ev.content);
         }
       }
     }
   } catch(e){
     if(thinking.parentNode) thinking.remove();
-    appendAiMsg('system', '⚠ Connection error: ' + e.message);
+    appendMsg('system','⚠ Connection error: '+e.message);
   }
-
-  if(assistantText) aiMessages.push({ role: 'assistant', content: assistantText });
-  aiStreaming = false;
-  aiSendBtn.disabled = false;
+  if(assistantText) aiMessages.push({role:'assistant',content:assistantText});
+  aiStreaming = false; aiSendBtn.disabled = false;
   aiMsgsEl.scrollTop = aiMsgsEl.scrollHeight;
 }
 
-// ── Tab management ───────────────────────────────────────────────────────────
-const GLOBE_SVG = `<svg class="tab-favicon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 1C8 1 5 4 5 8s3 7 3 7" stroke="currentColor" stroke-width="1.5"/><path d="M8 1C8 1 11 4 11 8s-3 7-3 7" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 8h13" stroke="currentColor" stroke-width="1.5"/></svg>`;
+// ── Tab management ────────────────────────────────────────────────────────
+const GLOBE = `<svg class="tab-favicon" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="8" cy="8" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M8 1C8 1 5 4 5 8s3 7 3 7" stroke="currentColor" stroke-width="1.5"/><path d="M8 1C8 1 11 4 11 8s-3 7-3 7" stroke="currentColor" stroke-width="1.5"/><path d="M1.5 8h13" stroke="currentColor" stroke-width="1.5"/></svg>`;
 
 function createTab(url){
   const id = ++tabIdCounter;
-  tabs[id] = { url:'', title:'New Tab', history:[], histIdx:-1 };
-
+  tabs[id] = {url:'', title:'New Tab', history:[], histIdx:-1};
   const tab = document.createElement('div');
-  tab.className = 'tab';
-  tab.dataset.id = id;
-  tab.innerHTML = `${GLOBE_SVG}<span class="tab-title">New Tab</span><span class="tab-close" title="Close">&times;</span>`;
+  tab.className = 'tab'; tab.dataset.id = id;
+  tab.innerHTML = `${GLOBE}<span class="tab-title">New Tab</span><span class="tab-close">&times;</span>`;
   tab.querySelector('.tab-close').addEventListener('click', e => { e.stopPropagation(); closeTab(id); });
   tab.addEventListener('click', () => switchTab(id));
   tabBar.insertBefore(tab, newTabBtn);
-
   const panel = document.createElement('div');
-  panel.className = 'tab-panel';
-  panel.dataset.id = id;
+  panel.className = 'tab-panel'; panel.dataset.id = id;
   panel.innerHTML = buildStartPage(id);
   tabContent.appendChild(panel);
-
   switchTab(id);
   attachStartPage(panel, id);
   if(url) navigateTo(id, url);
   return id;
 }
-
 function closeTab(id){
-  if(Object.keys(tabs).length === 1) createTab();
+  if(Object.keys(tabs).length===1) createTab();
   const ids = Object.keys(tabs).map(Number);
   const idx = ids.indexOf(id);
-  const nextId = ids[idx+1] || ids[idx-1];
   delete tabs[id];
   tabBar.querySelector(`.tab[data-id="${id}"]`).remove();
   tabContent.querySelector(`.tab-panel[data-id="${id}"]`).remove();
-  if(activeTabId === id) switchTab(nextId);
+  if(activeTabId===id) switchTab(ids[idx+1]||ids[idx-1]);
 }
-
 function switchTab(id){
   activeTabId = id;
-  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', +t.dataset.id === id));
-  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', +p.dataset.id === id));
-  const tab = tabs[id];
-  urlInput.value = tab.url || '';
-  updateScheme(tab.url);
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', +t.dataset.id===id));
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.toggle('active', +p.dataset.id===id));
+  const t = tabs[id];
+  urlInput.value = t.url || '';
+  updateScheme(t.url);
   updateNavBtns(id);
-  titleText.textContent = tab.title !== 'New Tab' ? tab.title : 'remote-browser';
-  statusText.textContent = tab.url ? `Loaded: ${tab.url}` : 'Ready';
-  aiPageCtx.textContent = tab.url || 'start page';
+  titleText.textContent = t.title || 'remote-browser';
+  statusText.textContent = t.url ? `Loaded: ${t.url}` : 'Ready';
+  aiPageCtx.textContent = t.url || 'start page';
 }
 
-// ── Navigation ───────────────────────────────────────────────────────────────
+// ── Navigation ────────────────────────────────────────────────────────────
+function normalizeUrl(raw){
+  raw = raw.trim();
+  if(!raw) return '';
+  if(!raw.match(/^https?:\/\//) && !raw.match(/^[\w\-]+\.[a-z]{2,}/i))
+    return 'https://duckduckgo.com/?q='+encodeURIComponent(raw);
+  if(!raw.startsWith('http')) return 'https://'+raw;
+  return raw;
+}
 function navigateTo(id, rawUrl){
-  let url = rawUrl.trim();
+  const url = normalizeUrl(rawUrl);
   if(!url) return;
-  if(!url.match(/^https?:\/\//) && !url.match(/^[\w\-]+\.[a-z]{2,}/i)){
-    url = 'https://duckduckgo.com/?q=' + encodeURIComponent(url);
-  }
-  if(!url.startsWith('http://') && !url.startsWith('https://')) url = 'https://' + url;
-
   const tab = tabs[id];
-  tab.history = tab.history.slice(0, tab.histIdx + 1);
-  tab.history.push(url);
-  tab.histIdx = tab.history.length - 1;
-  tab.url = url;
-  urlInput.value = url;
-  updateScheme(url);
-  updateNavBtns(id);
+  tab.history = tab.history.slice(0, tab.histIdx+1);
+  tab.history.push(url); tab.histIdx = tab.history.length-1; tab.url = url;
+  urlInput.value = url; updateScheme(url); updateNavBtns(id);
   aiPageCtx.textContent = url;
-
-  setTabLoading(id, true);
-  showProgress();
+  setTabLoading(id, true); showProgress();
   statusText.textContent = `Loading ${url}…`;
-
   const panel = tabContent.querySelector(`.tab-panel[data-id="${id}"]`);
   panel.innerHTML = '';
   const iframe = document.createElement('iframe');
   iframe.className = 'browser-frame';
-  iframe.src = '/fetch?url=' + encodeURIComponent(url);
+  iframe.src = '/fetch?url='+encodeURIComponent(url);
+
+  // ── URL bar / title sync: poll iframe location ─────────────────────────
+  // We can't read cross-origin iframe.contentWindow.location directly,
+  // but we CAN read iframe.src which the proxy-intercept script updates
+  // via history.pushState hooks. Also listen for load events.
+  let pollTimer = null;
+  function syncFromIframe(){
+    try {
+      // Extract the proxied URL from the iframe's current src
+      const src = iframe.src || '';
+      const match = src.match(/\/fetch\?url=(.+)/);
+      if(match){
+        const proxiedUrl = decodeURIComponent(match[1]);
+        if(proxiedUrl && proxiedUrl !== tab.url){
+          tab.url = proxiedUrl;
+          if(id === activeTabId){
+            urlInput.value = proxiedUrl;
+            updateScheme(proxiedUrl);
+          }
+        }
+      }
+      // Sync title
+      let title = '';
+      try { title = iframe.contentDocument?.title || ''; } catch(_){}
+      if(title && title !== tab.title) setTabTitle(id, title);
+    } catch(_) {}
+  }
+
   iframe.addEventListener('load', () => {
     setTabLoading(id, false); doneProgress();
-    let title = url;
-    try { title = iframe.contentDocument.title || url; } catch(_){}
-    setTabTitle(id, title);
-    statusText.textContent = `Loaded: ${url}`;
+    syncFromIframe();
+    statusText.textContent = `Loaded: ${tab.url}`;
+    // Poll every second for SPA navigation changes
+    clearInterval(pollTimer);
+    pollTimer = setInterval(syncFromIframe, 1000);
   });
-  iframe.addEventListener('error', () => { setTabLoading(id, false); doneProgress(); showError(id, url); });
+  iframe.addEventListener('error', () => {
+    setTabLoading(id, false); doneProgress(); showError(id, url);
+    clearInterval(pollTimer);
+  });
+
+  // Clean up poll on tab close/navigate
+  tab._cleanup = () => clearInterval(pollTimer);
   panel.appendChild(iframe);
 }
 
 function goBack(id){
-  const tab = tabs[id];
-  if(tab.histIdx <= 0) return;
-  tab.histIdx--;
-  const url = tab.history[tab.histIdx];
-  tab.url = url; urlInput.value = url; updateScheme(url); updateNavBtns(id);
-  reloadFrame(id, url);
+  const t = tabs[id]; if(t.histIdx<=0) return;
+  t.histIdx--; const url=t.history[t.histIdx]; t.url=url;
+  urlInput.value=url; updateScheme(url); updateNavBtns(id);
+  reloadFrame(id,url);
 }
-
 function goForward(id){
-  const tab = tabs[id];
-  if(tab.histIdx >= tab.history.length - 1) return;
-  tab.histIdx++;
-  const url = tab.history[tab.histIdx];
-  tab.url = url; urlInput.value = url; updateScheme(url); updateNavBtns(id);
-  reloadFrame(id, url);
+  const t = tabs[id]; if(t.histIdx>=t.history.length-1) return;
+  t.histIdx++; const url=t.history[t.histIdx]; t.url=url;
+  urlInput.value=url; updateScheme(url); updateNavBtns(id);
+  reloadFrame(id,url);
 }
-
 function reloadFrame(id, url){
-  setTabLoading(id, true); showProgress();
-  statusText.textContent = `Loading ${url}…`;
+  setTabLoading(id,true); showProgress();
+  statusText.textContent=`Loading ${url}…`;
   const iframe = tabContent.querySelector(`.tab-panel[data-id="${id}"] iframe`);
   if(iframe){
-    iframe.src = '/fetch?url=' + encodeURIComponent(url);
-    iframe.addEventListener('load', () => { setTabLoading(id,false); doneProgress(); statusText.textContent=`Loaded: ${url}`; }, {once:true});
+    iframe.src='/fetch?url='+encodeURIComponent(url);
+    iframe.addEventListener('load',()=>{setTabLoading(id,false);doneProgress();statusText.textContent=`Loaded: ${url}`;},{once:true});
   }
 }
 
-// ── Helpers ──────────────────────────────────────────────────────────────────
+// ── UI helpers ────────────────────────────────────────────────────────────
 function buildStartPage(id){
   return `<div class="start-page">
     <div class="start-logo">remote<span>://</span>browser</div>
-    <div class="start-sub">// server-side proxy · powered by render.com</div>
+    <div class="start-sub">// server-side proxy · render.com</div>
     <div class="start-search">
       <input type="text" placeholder="Enter URL or search the web…" data-sp-input autocomplete="off"/>
       <button data-sp-btn>Go</button>
@@ -551,7 +504,6 @@ function buildStartPage(id){
     </div>
   </div>`;
 }
-
 function attachStartPage(panel, id){
   const inp = panel.querySelector('[data-sp-input]');
   const btn = panel.querySelector('[data-sp-btn]');
@@ -559,79 +511,68 @@ function attachStartPage(panel, id){
   const go = () => { if(inp.value.trim()) navigateTo(id, inp.value.trim()); };
   btn.addEventListener('click', go);
   inp.addEventListener('keydown', e => { if(e.key==='Enter') go(); });
-  panel.querySelectorAll('.quicklink').forEach(ql => ql.addEventListener('click', () => navigateTo(id, ql.dataset.url)));
+  panel.querySelectorAll('.quicklink').forEach(q => q.addEventListener('click', ()=>navigateTo(id, q.dataset.url)));
 }
-
 function showError(id, url){
   const panel = tabContent.querySelector(`.tab-panel[data-id="${id}"]`);
-  panel.innerHTML = `<div class="error-page">
+  panel.innerHTML=`<div class="error-page">
     <div class="error-code">ERR</div>
-    <div class="error-msg">Could not load <strong>${url}</strong>.<br>The page may be unavailable, require authentication, or is blocked.</div>
+    <div class="error-msg">Could not load <strong>${escHtml(url)}</strong>.</div>
     <button class="error-retry">Try again</button>
   </div>`;
-  panel.querySelector('.error-retry').addEventListener('click', () => navigateTo(id, url));
-  setTabTitle(id, 'Error');
+  panel.querySelector('.error-retry').addEventListener('click',()=>navigateTo(id,url));
+  setTabTitle(id,'Error');
 }
-
 function setTabTitle(id, title){
-  const s = title.length > 22 ? title.slice(0,20)+'…' : title;
+  const s = title.length>24 ? title.slice(0,22)+'…' : title;
   tabs[id].title = s;
   const el = tabBar.querySelector(`.tab[data-id="${id}"] .tab-title`);
   if(el) el.textContent = s;
-  if(id === activeTabId) titleText.textContent = s;
+  if(id===activeTabId) titleText.textContent = s;
 }
-
 function setTabLoading(id, v){
-  const tab = tabBar.querySelector(`.tab[data-id="${id}"]`);
-  if(tab) tab.classList.toggle('tab-loading', v);
+  tabBar.querySelector(`.tab[data-id="${id}"]`)?.classList.toggle('tab-loading',v);
 }
-
 function updateNavBtns(id){
-  const tab = tabs[id];
-  btnBack.disabled    = tab.histIdx <= 0;
-  btnFwd.disabled     = tab.histIdx >= tab.history.length - 1;
+  const t = tabs[id];
+  btnBack.disabled    = t.histIdx<=0;
+  btnFwd.disabled     = t.histIdx>=t.history.length-1;
 }
-
 function updateScheme(url){
   if(url.startsWith('https://')){ schemeBadge.textContent='https'; schemeBadge.className='scheme-badge'; }
   else if(url.startsWith('http://')){ schemeBadge.textContent='http'; schemeBadge.className='scheme-badge insecure'; }
   else { schemeBadge.textContent='—'; schemeBadge.className='scheme-badge insecure'; }
 }
-
 function showProgress(){
-  progressBar.classList.remove('done');
-  progressBar.style.transition='width .3s ease';
-  progressBar.style.width='0%';
-  requestAnimationFrame(()=>{ progressBar.style.width='75%'; });
+  progressBar.classList.remove('done'); progressBar.style.transition='width .3s ease';
+  progressBar.style.width='0%'; requestAnimationFrame(()=>{ progressBar.style.width='75%'; });
 }
 function doneProgress(){
-  progressBar.style.transition='width .15s ease';
-  progressBar.style.width='100%';
+  progressBar.style.transition='width .15s ease'; progressBar.style.width='100%';
   setTimeout(()=>progressBar.classList.add('done'),200);
   setTimeout(()=>{ progressBar.style.width='0%'; progressBar.classList.remove('done'); },800);
 }
 
-// ── Toolbar events ───────────────────────────────────────────────────────────
-goBtn.addEventListener('click', () => navigateTo(activeTabId, urlInput.value));
-urlInput.addEventListener('keydown', e => { if(e.key==='Enter') navigateTo(activeTabId, urlInput.value); });
-urlInput.addEventListener('input', () => updateScheme(urlInput.value));
-btnBack.addEventListener('click',    () => goBack(activeTabId));
-btnFwd.addEventListener('click',     () => goForward(activeTabId));
-btnReload.addEventListener('click',  () => { const t=tabs[activeTabId]; if(t.url) reloadFrame(activeTabId,t.url); });
-btnHome.addEventListener('click', () => {
-  const tab = tabs[activeTabId];
-  tab.url=''; tab.history=[]; tab.histIdx=-1;
+// ── Toolbar events ────────────────────────────────────────────────────────
+goBtn.addEventListener('click',   ()=>navigateTo(activeTabId, urlInput.value));
+urlInput.addEventListener('keydown', e=>{ if(e.key==='Enter') navigateTo(activeTabId, urlInput.value); });
+urlInput.addEventListener('input',   ()=>updateScheme(urlInput.value));
+btnBack.addEventListener('click',    ()=>goBack(activeTabId));
+btnFwd.addEventListener('click',     ()=>goForward(activeTabId));
+btnReload.addEventListener('click',  ()=>{ const t=tabs[activeTabId]; if(t.url) reloadFrame(activeTabId,t.url); });
+btnHome.addEventListener('click', ()=>{
+  const t=tabs[activeTabId]; if(t._cleanup) t._cleanup();
+  t.url=''; t.history=[]; t.histIdx=-1;
   urlInput.value=''; updateScheme(''); updateNavBtns(activeTabId);
-  const panel = tabContent.querySelector(`.tab-panel[data-id="${activeTabId}"]`);
-  panel.innerHTML = buildStartPage(activeTabId);
+  const panel=tabContent.querySelector(`.tab-panel[data-id="${activeTabId}"]`);
+  panel.innerHTML=buildStartPage(activeTabId);
   attachStartPage(panel, activeTabId);
   setTabTitle(activeTabId,'New Tab');
-  statusText.textContent='Ready';
-  aiPageCtx.textContent='start page';
+  statusText.textContent='Ready'; aiPageCtx.textContent='start page';
 });
-newTabBtn.addEventListener('click', () => createTab());
+newTabBtn.addEventListener('click', ()=>createTab());
 
-// ── Boot ─────────────────────────────────────────────────────────────────────
+// ── Boot ──────────────────────────────────────────────────────────────────
 createTab();
 
 })();
